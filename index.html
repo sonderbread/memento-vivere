@@ -385,6 +385,7 @@
             };
 
             const startTimer = (id) => {
+                const stringId = String(id);
                 const activity = activities.find(a => a.id === id);
                 if (!activity) return;
 
@@ -395,22 +396,22 @@
                 }
 
                 // If it's a countdown activity and not already running, show duration prompt
-                if (activity.isCountdown && !runningTimers[id]) {
+                if (activity.isCountdown && !runningTimers[stringId]) {
                     setCountdownPrompt({ activityId: id, hours: 0, minutes: 0, seconds: 0 });
                     return;
                 }
 
-                if (runningTimers[id]) {
+                if (runningTimers[stringId]) {
                     // Toggle pause/resume
-                    if (runningTimers[id].isPaused) {
+                    if (runningTimers[stringId].isPaused) {
                         // Resume
-                        const pausedElapsed = runningTimers[id].pausedElapsed;
-                        if (runningTimers[id].isCountdown) {
+                        const pausedElapsed = runningTimers[stringId].pausedElapsed;
+                        if (runningTimers[stringId].isCountdown) {
                             // For countdown, adjust the startTime so elapsed time continues correctly
                             setRunningTimers({
                                 ...runningTimers,
-                                [id]: {
-                                    ...runningTimers[id],
+                                [stringId]: {
+                                    ...runningTimers[stringId],
                                     startTime: Date.now() - (pausedElapsed * 1000),
                                     isPaused: false,
                                     pausedElapsed: 0
@@ -419,7 +420,7 @@
                         } else {
                             setRunningTimers({
                                 ...runningTimers,
-                                [id]: {
+                                [stringId]: {
                                     startTime: Date.now() - (pausedElapsed * 1000),
                                     isPaused: false,
                                     pausedElapsed: 0
@@ -431,10 +432,10 @@
                         // Pause
                         setRunningTimers({
                             ...runningTimers,
-                            [id]: {
-                                ...runningTimers[id],
+                            [stringId]: {
+                                ...runningTimers[stringId],
                                 isPaused: true,
-                                pausedElapsed: timerDisplays[id] || 0
+                                pausedElapsed: timerDisplays[stringId] || 0
                             }
                         });
                         addLog('Timer Paused', activity.name);
@@ -443,7 +444,7 @@
                     // Start new timer (non-countdown, countdown goes through dialog)
                     setRunningTimers({
                         ...runningTimers,
-                        [id]: {
+                        [stringId]: {
                             startTime: Date.now(),
                             isPaused: false,
                             pausedElapsed: 0
@@ -457,9 +458,10 @@
                 const activity = activities.find(a => a.id === activityId);
                 if (!activity) return;
 
+                const stringId = String(activityId);
                 setRunningTimers({
                     ...runningTimers,
-                    [activityId]: {
+                    [stringId]: {
                         startTime: Date.now(),
                         isCountdown: true,
                         totalSeconds: totalSeconds,
@@ -472,12 +474,13 @@
             };
 
             const resetTimer = (id) => {
+                const stringId = String(id);
                 const newTimers = { ...runningTimers };
-                delete newTimers[String(id)];
+                delete newTimers[stringId];
                 setRunningTimers(newTimers);
                 
                 const newDisplays = { ...timerDisplays };
-                delete newDisplays[String(id)];
+                delete newDisplays[stringId];
                 setTimerDisplays(newDisplays);
             };
 
@@ -523,7 +526,8 @@
             };
 
             const completeTimer = (id) => {
-                const timer = runningTimers[id];
+                const stringId = String(id);
+                const timer = runningTimers[stringId];
                 const activity = activities.find(a => a.id === id);
                 
                 if (!activity || !timer) return;
@@ -580,7 +584,7 @@
                 
                 // Remove from running timers (convert id to string for matching)
                 const newTimers = { ...runningTimers };
-                delete newTimers[String(id)];
+                delete newTimers[stringId];
                 setRunningTimers(newTimers);
             };
 
