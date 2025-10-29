@@ -16,6 +16,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
             margin: 0;
@@ -300,7 +301,10 @@
             const [enableEditActivities, setEnableEditActivities] = useState(false);
             const [showCacheConfirm, setShowCacheConfirm] = useState(null); // null, 'soft', or 'hard'
             const [settingsTab, setSettingsTab] = useState('balance'); // 'balance', 'logs', 'cache'
-            const [googleClientId] = useState('556805693341-ret1dnff9233en3u6en85cd04anubfep.apps.googleusercontent.com');
+            const [googleClientId, setGoogleClientId] = useState(() => {
+                const saved = localStorage.getItem('memento-googleClientId');
+                return saved || '';
+            });
             const [googleAuthToken, setGoogleAuthToken] = useState(null);
             const [isGoogleAuthed, setIsGoogleAuthed] = useState(false);
             const [lastSyncTime, setLastSyncTime] = useState(() => {
@@ -312,57 +316,47 @@
                 return saved ? JSON.parse(saved) : false;
             });
             const [syncStatus, setSyncStatus] = useState(''); // 'syncing', 'success', 'error', ''
+            const [showClientIdInput, setShowClientIdInput] = useState(false);
             const pendingCompletionsRef = useRef(new Set());
             const audioRef = useRef(null);
 
-            // Initialize Google API with Drive access
+            // Initialize Google API
             useEffect(() => {
-                const initializeGoogleAPI = () => {
-                    if (!window.gapi) {
-                        console.log('gapi not loaded, retrying...');
-                        setTimeout(initializeGoogleAPI, 500);
-                        return;
-                    }
+                if (!googleClientId) return;
 
-                    window.gapi.load('client:auth2', () => {
-                        window.gapi.client.init({
-                            apiKey: 'AIzaSyD1234567890', // Optional, not needed for auth
-                            clientId: '556805693341-ret1dnff9233en3u6en85cd04anubfep.apps.googleusercontent.com',
-                            scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile',
-                            discoveryDocs: [],
-                        }).then(() => {
-                            console.log('gapi client initialized');
-                            const auth2 = window.gapi.auth2.getAuthInstance();
-                            
-                            // Check if user is already signed in
-                            if (auth2.isSignedIn.get()) {
-                                setIsGoogleAuthed(true);
-                                const token = auth2.currentUser.get().getAuthResponse(true).id_token;
-                                setGoogleAuthToken(token);
-                                setTimeout(() => loadFromGoogleDrive(token), 500);
+                const initializeGoogleAPI = async () => {
+                    try {
+                        gapi.load('client', async () => {
+                            await gapi.client.init({
+                                clientId: googleClientId,
+                                scope: 'https://www.googleapis.com/auth/drive.appdata',
+                            });
+
+                            const auth = gapi.auth2.getAuthInstance();
+                            const isSignedIn = auth.isSignedIn.get();
+                            setIsGoogleAuthed(isSignedIn);
+
+                            if (isSignedIn) {
+                                setGoogleAuthToken(auth.currentUser.get().getAuthResponse().access_token);
+                                // Auto-load data on startup if signed in
+                                setTimeout(() => loadFromGoogleDrive(auth.currentUser.get().getAuthResponse().access_token), 500);
                             }
 
-                            // Listen for sign-in state changes
-                            auth2.isSignedIn.listen(isSignedIn => {
-                                console.log('Sign-in state changed:', isSignedIn);
+                            // Listen for sign-in changes
+                            auth.isSignedIn.listen((isSignedIn) => {
                                 setIsGoogleAuthed(isSignedIn);
                                 if (isSignedIn) {
-                                    const user = auth2.currentUser.get();
-                                    const profile = user.getBasicProfile();
-                                    const token = user.getAuthResponse(true).id_token;
-                                    setGoogleAuthToken(token);
-                                    console.log('Signed in as:', profile.getEmail());
-                                    addLog('Cloud Sync', 'Signed in to Google');
+                                    setGoogleAuthToken(auth.currentUser.get().getAuthResponse().access_token);
                                 }
                             });
-                        }).catch(error => {
-                            console.error('gapi initialization error:', error);
                         });
-                    });
+                    } catch (error) {
+                        console.error('Error initializing Google API:', error);
+                    }
                 };
 
                 initializeGoogleAPI();
-            }, []);
+            }, [googleClientId]);
 
             // Load from localStorage on mount
             useEffect(() => {
@@ -379,6 +373,9 @@
                 if ('Notification' in window && Notification.permission === 'default') {
                     Notification.requestPermission();
                 }
+
+                // Show client ID input if no client ID is set
+                setShowClientIdInput(!googleClientId);
             }, []);
 
             // Save auto-sync preference
@@ -397,33 +394,26 @@
                 return () => clearInterval(saveInterval);
             }, [autoSyncEnabled, isGoogleAuthed, googleAuthToken, activities, balance, logs]);
 
-            const handleGoogleCallback = async (response) => {
-                // Not used with gapi
-            };
-
             const handleGoogleSignIn = async () => {
+                if (!googleClientId) {
+                    setShowClientIdInput(true);
+                    return;
+                }
+
                 try {
-                    if (!window.gapi || !window.gapi.auth2) {
-                        alert('Google services not loaded. Please refresh the page and wait a moment before clicking.');
-                        return;
-                    }
-                    const auth2 = window.gapi.auth2.getAuthInstance();
-                    console.log('Attempting sign in...');
-                    await auth2.signIn();
+                    const auth = gapi.auth2.getAuthInstance();
+                    await auth.signIn();
                 } catch (error) {
                     console.error('Sign in error:', error);
-                    alert('Sign in failed. Please check the console for details.');
                 }
             };
 
             const handleGoogleSignOut = async () => {
                 try {
-                    if (!window.gapi || !window.gapi.auth2) return;
-                    const auth2 = window.gapi.auth2.getAuthInstance();
-                    await auth2.signOut();
+                    const auth = gapi.auth2.getAuthInstance();
+                    await auth.signOut();
                     setIsGoogleAuthed(false);
                     setGoogleAuthToken(null);
-                    addLog('Cloud Sync', 'Signed out from Google');
                 } catch (error) {
                     console.error('Sign out error:', error);
                 }
@@ -560,6 +550,13 @@
                 }
             };
 
+            const handleSaveClientId = (clientId) => {
+                if (clientId.trim()) {
+                    setGoogleClientId(clientId);
+                    localStorage.setItem('memento-googleClientId', clientId);
+                    setShowClientIdInput(false);
+                }
+            };
 
             // Save to localStorage whenever data changes
             useEffect(() => {
@@ -961,25 +958,6 @@
                                     >
                                         ⚙️ <span className="md:hidden text-xs">Settings</span>
                                     </button>
-                                    {isGoogleAuthed ? (
-                                        <button
-                                            onClick={handleGoogleSignOut}
-                                            className={`flex items-center gap-1 px-3 md:px-4 py-2 rounded-lg font-semibold transition flex-1 md:flex-none justify-center ${darkMode ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}
-                                            title="Signed in to Google Drive"
-                                        >
-                                            <span className="text-sm">☁️</span>
-                                            <span className="md:hidden text-xs">Signed In</span>
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={handleGoogleSignIn}
-                                            className={`flex items-center gap-1 px-3 md:px-4 py-2 rounded-lg font-semibold transition flex-1 md:flex-none justify-center ${darkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-                                            title="Sign in with Google Drive"
-                                        >
-                                            <span className="text-sm">🔵</span>
-                                            <span className="md:hidden text-xs">Sign In</span>
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                             
@@ -1112,6 +1090,75 @@
                                                             Enable Activity Editing (shows delete buttons)
                                                         </span>
                                                     </label>
+                                                </div>
+
+                                                <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
+                                                    <h4 className={`font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>☁️ Google Drive Sync</h4>
+                                                    {!isGoogleAuthed ? (
+                                                        <>
+                                                            <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                                Sync your data across devices using Google Drive
+                                                            </p>
+                                                            {!googleClientId && (
+                                                                <button
+                                                                    onClick={() => setShowClientIdInput(true)}
+                                                                    className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mb-2"
+                                                                >
+                                                                    Setup Google Drive
+                                                                </button>
+                                                            )}
+                                                            {googleClientId && (
+                                                                <button
+                                                                    onClick={handleGoogleSignIn}
+                                                                    className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mb-2"
+                                                                >
+                                                                    Sign in with Google
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <p className={`text-sm mb-3 ${darkMode ? 'text-green-300' : 'text-green-600'}`}>
+                                                                ✓ Connected to Google Drive
+                                                            </p>
+                                                            <label className={`flex items-center gap-3 mb-3 cursor-pointer`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={autoSyncEnabled}
+                                                                    onChange={(e) => setAutoSyncEnabled(e.target.checked)}
+                                                                    className="w-4 h-4"
+                                                                />
+                                                                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                                    Auto-save every minute
+                                                                </span>
+                                                            </label>
+                                                            <button
+                                                                onClick={() => saveToGoogleDrive(googleAuthToken)}
+                                                                disabled={syncStatus === 'syncing'}
+                                                                className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mb-2 disabled:opacity-50"
+                                                            >
+                                                                {syncStatus === 'syncing' ? '⟳ Syncing...' : '💾 Save Now'}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => loadFromGoogleDrive(googleAuthToken)}
+                                                                disabled={syncStatus === 'syncing'}
+                                                                className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mb-2 disabled:opacity-50"
+                                                            >
+                                                                {syncStatus === 'syncing' ? '⟳ Loading...' : '📥 Load Now'}
+                                                            </button>
+                                                            {lastSyncTime && (
+                                                                <p className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                    Last sync: {lastSyncTime}
+                                                                </p>
+                                                            )}
+                                                            <button
+                                                                onClick={handleGoogleSignOut}
+                                                                className="w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm"
+                                                            >
+                                                                Sign Out
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
 
                                                 <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
@@ -1251,6 +1298,51 @@
                             </div>
                         )}
 
+                        {/* Google Client ID Setup Modal */}
+                        {showClientIdInput && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-2xl p-4 md:p-8 max-w-md w-full transition-colors`}>
+                                    <h2 className={`text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Setup Google Drive Sync</h2>
+                                    <div className="space-y-4 mb-6">
+                                        <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                            To enable Google Drive syncing, you need to:
+                                        </p>
+                                        <ol className={`list-decimal list-inside text-xs md:text-sm space-y-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                            <li>Go to <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Google Cloud Console</a></li>
+                                            <li>Create a new project</li>
+                                            <li>Enable "Google Drive API"</li>
+                                            <li>Create OAuth 2.0 credentials (Web application)</li>
+                                            <li>Add your domain to authorized JavaScript origins</li>
+                                            <li>Copy your Client ID below</li>
+                                        </ol>
+                                        <input
+                                            type="password"
+                                            placeholder="Paste your Google Client ID here"
+                                            defaultValue={googleClientId}
+                                            id="clientIdInput"
+                                            className={`w-full border-2 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500 text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                        />
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => {
+                                                const clientId = document.getElementById('clientIdInput').value;
+                                                handleSaveClientId(clientId);
+                                            }}
+                                            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-lg font-bold transition text-sm"
+                                        >
+                                            Save Client ID
+                                        </button>
+                                        <button
+                                            onClick={() => setShowClientIdInput(false)}
+                                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-bold transition text-sm"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Completion Prompt Modal */}
                         {completionPrompt && (
