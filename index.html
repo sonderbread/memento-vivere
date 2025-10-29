@@ -473,11 +473,11 @@
 
             const resetTimer = (id) => {
                 const newTimers = { ...runningTimers };
-                delete newTimers[id];
+                delete newTimers[String(id)];
                 setRunningTimers(newTimers);
                 
                 const newDisplays = { ...timerDisplays };
-                delete newDisplays[id];
+                delete newDisplays[String(id)];
                 setTimerDisplays(newDisplays);
             };
 
@@ -504,8 +504,8 @@
                 setActivities(activities.filter(a => a.id !== id));
                 // Stop and remove timer if it's running
                 const newTimers = { ...runningTimers };
-                if (newTimers[id]) {
-                    delete newTimers[id];
+                if (newTimers[String(id)]) {
+                    delete newTimers[String(id)];
                     setRunningTimers(newTimers);
                 }
             };
@@ -578,9 +578,9 @@
                     audioRef.current?.play();
                 }
                 
-                // Remove from running timers
+                // Remove from running timers (convert id to string for matching)
                 const newTimers = { ...runningTimers };
-                delete newTimers[id];
+                delete newTimers[String(id)];
                 setRunningTimers(newTimers);
             };
 
