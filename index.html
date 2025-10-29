@@ -150,7 +150,7 @@
             </svg>
         );
 
-        function ActivityItem({ activity, isActive, isEditing, editValues, onStartTimer, onDelete, onEdit, onSaveEdit, onCancelEdit, onEditChange, darkMode }) {
+        function ActivityItem({ activity, isActive, isEditing, editValues, onStartTimer, onDelete, onEdit, onSaveEdit, onCancelEdit, onEditChange, darkMode, enableEditActivities }) {
             if (isEditing) {
                 return (
                     <div className={`${darkMode ? 'bg-gray-700 border-2 border-indigo-400' : 'bg-gray-50 border-2 border-indigo-300'} rounded-lg p-4 transition-colors`}>
@@ -257,12 +257,14 @@
                         >
                             <Edit2 size={16} />
                         </button>
-                        <button
-                            onClick={onDelete}
-                            className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded font-semibold transition"
-                        >
-                            <Trash2 size={16} />
-                        </button>
+                        {enableEditActivities && (
+                            <button
+                                onClick={onDelete}
+                                className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded font-semibold transition"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
                     </div>
                 </div>
             );
@@ -294,6 +296,9 @@
             const [showWipeConfirm, setShowWipeConfirm] = useState(false);
             const [countdownPrompt, setCountdownPrompt] = useState(null); // { activityId, hours, minutes, seconds }
             const [completionAlert, setCompletionAlert] = useState(null); // { activityName, activityId }
+            const [enableEditActivities, setEnableEditActivities] = useState(false);
+            const [showCacheConfirm, setShowCacheConfirm] = useState(null); // null, 'soft', or 'hard'
+            const [settingsTab, setSettingsTab] = useState('balance'); // 'balance', 'logs', 'cache'
             const pendingCompletionsRef = useRef(new Set());
             const audioRef = useRef(null);
 
@@ -530,7 +535,12 @@
                 const timer = runningTimers[stringId];
                 const activity = activities.find(a => a.id === id);
                 
-                if (!activity || !timer) return;
+                // Remove from pending completions to prevent double-execution
+                pendingCompletionsRef.current.delete(stringId);
+                
+                if (!activity || !timer) {
+                    return;
+                }
 
                 let timeSpent = 0;
                 
@@ -649,6 +659,17 @@
                 setNewActivity({ name: '', rate: 1, type: 'credit' });
                 setShowSettings(false);
                 setShowWipeConfirm(false);
+                setShowCacheConfirm(null);
+            };
+
+            const handleSoftClearCache = () => {
+                // Keep balance and activities, only clear logs
+                setLogs([]);
+                setRunningTimers({});
+                setTimerDisplays({});
+                setShowSettings(false);
+                setShowCacheConfirm(null);
+                addLog('Cache Cleared', 'Temporary data cleared while preserving activities and balance');
             };
 
             const sortActivities = (actsList) => {
@@ -717,20 +738,26 @@
                                     {/* Tabs */}
                                     <div className={`flex gap-2 mb-6 border-b ${darkMode ? 'border-gray-700' : ''}`}>
                                         <button
-                                            onClick={() => setShowLogs(false)}
-                                            className={`px-4 py-2 font-semibold transition ${!showLogs ? 'text-indigo-600 border-b-2 border-indigo-600' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                                            onClick={() => setSettingsTab('balance')}
+                                            className={`px-4 py-2 font-semibold transition ${settingsTab === 'balance' ? 'text-indigo-600 border-b-2 border-indigo-600' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}
                                         >
                                             Balance Adjustment
                                         </button>
                                         <button
-                                            onClick={() => setShowLogs(true)}
-                                            className={`px-4 py-2 font-semibold transition ${showLogs ? 'text-indigo-600 border-b-2 border-indigo-600' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                                            onClick={() => setSettingsTab('logs')}
+                                            className={`px-4 py-2 font-semibold transition ${settingsTab === 'logs' ? 'text-indigo-600 border-b-2 border-indigo-600' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}
                                         >
                                             Activity Log ({logs.length})
                                         </button>
+                                        <button
+                                            onClick={() => setSettingsTab('cache')}
+                                            className={`px-4 py-2 font-semibold transition ${settingsTab === 'cache' ? 'text-indigo-600 border-b-2 border-indigo-600' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                                        >
+                                            Cache & Data
+                                        </button>
                                     </div>
 
-                                    {!showLogs ? (
+                                    {settingsTab === 'balance' ? (
                                         <>
                                             {/* Balance Adjustment Tab */}
                                             <div className="mb-6">
@@ -775,10 +802,10 @@
                                                 </button>
                                             </div>
                                         </>
-                                    ) : (
+                                    ) : settingsTab === 'logs' ? (
                                         <>
                                             {/* Activity Log Tab */}
-                                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                            <div className="space-y-2 max-h-64 overflow-y-auto mb-6">
                                                 {logs.length === 0 ? (
                                                     <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>No activity logs yet</p>
                                                 ) : (
@@ -793,7 +820,7 @@
                                                     ))
                                                 )}
                                             </div>
-                                            <div className="mt-4 flex gap-3">
+                                            <div className="flex gap-3">
                                                 <button
                                                     onClick={() => setLogs([])}
                                                     className="flex-1 bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-semibold transition text-sm"
@@ -807,21 +834,128 @@
                                                     Close
                                                 </button>
                                             </div>
-                                            <div className="mt-6 pt-6 border-t border-gray-300 dark:border-gray-600">
-                                                <button
-                                                    onClick={() => setShowWipeConfirm(true)}
-                                                    className="w-full bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-bold transition text-sm"
-                                                >
-                                                    🗑️ Wipe All Data & Start Fresh
-                                                </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {/* Cache & Data Management Tab */}
+                                            <div className="space-y-4 mb-6">
+                                                <div>
+                                                    <label className={`flex items-center gap-3 mb-4 cursor-pointer`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={enableEditActivities}
+                                                            onChange={(e) => setEnableEditActivities(e.target.checked)}
+                                                            className="w-4 h-4"
+                                                        />
+                                                        <span className={`text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                                                            Enable Activity Editing (shows delete buttons)
+                                                        </span>
+                                                    </label>
+                                                </div>
+
+                                                <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
+                                                    <h4 className={`font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Clear Old Cache</h4>
+                                                    <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                        Remove cached code and temporary files while keeping your balance and activities intact.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setShowCacheConfirm('soft')}
+                                                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm"
+                                                    >
+                                                        🧹 Clear Cache
+                                                    </button>
+                                                </div>
+
+                                                <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
+                                                    <h4 className={`font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Wipe All Data</h4>
+                                                    <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                        Start completely fresh. This will permanently delete all activities, balance, and logs.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setShowCacheConfirm('hard')}
+                                                        className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold transition text-sm"
+                                                    >
+                                                        🗑️ Wipe All Data & Start Fresh
+                                                    </button>
+                                                </div>
                                             </div>
+
+                                            <button
+                                                onClick={() => setShowSettings(false)}
+                                                className="w-full bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold transition text-sm"
+                                            >
+                                                Close
+                                            </button>
                                         </>
                                     )}
                                 </div>
                             </div>
                         )}
 
-                        {/* Wipe Data Confirmation Modal */}
+                        {/* Cache Operation Confirmation Modal */}
+                        {showCacheConfirm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-2xl p-4 md:p-8 max-w-md w-full transition-colors`}>
+                                    {showCacheConfirm === 'soft' ? (
+                                        <>
+                                            <h2 className={`text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Clear Cache?</h2>
+                                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4 text-sm md:text-base`}>
+                                                This will clear temporary data while keeping:
+                                            </p>
+                                            <ul className={`list-disc list-inside ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6 text-sm md:text-base`}>
+                                                <li>Your activity balance</li>
+                                                <li>All your activities</li>
+                                            </ul>
+                                            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-6 text-xs md:text-sm`}>
+                                                Cleared: Activity logs and running timers
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h2 className={`text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Wipe All Data?</h2>
+                                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2 text-sm md:text-base`}>
+                                                This will permanently delete:
+                                            </p>
+                                            <ul className={`list-disc list-inside ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6 text-sm md:text-base`}>
+                                                <li>All activities</li>
+                                                <li>Current balance</li>
+                                                <li>All activity logs</li>
+                                                <li>Any running timers</li>
+                                            </ul>
+                                            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-6 text-xs md:text-sm font-semibold`}>
+                                                This action cannot be undone.
+                                            </p>
+                                        </>
+                                    )}
+                                    <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                                        <button
+                                            onClick={() => {
+                                                if (showCacheConfirm === 'soft') {
+                                                    handleSoftClearCache();
+                                                } else {
+                                                    handleWipeData();
+                                                }
+                                            }}
+                                            className={`flex-1 px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold transition text-sm md:text-base text-white ${
+                                                showCacheConfirm === 'soft'
+                                                    ? 'bg-yellow-500 hover:bg-yellow-600'
+                                                    : 'bg-red-600 hover:bg-red-700'
+                                            }`}
+                                        >
+                                            {showCacheConfirm === 'soft' ? 'Yes, Clear Cache' : 'Yes, Wipe Everything'}
+                                        </button>
+                                        <button
+                                            onClick={() => setShowCacheConfirm(null)}
+                                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold transition text-sm md:text-base"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Wipe Data Confirmation Modal (deprecated - keeping for reference) */}
                         {showWipeConfirm && (
                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
                                 <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-2xl p-4 md:p-8 max-w-md w-full transition-colors`}>
@@ -1290,6 +1424,7 @@
                                                 onCancelEdit={() => setEditingId(null)}
                                                 onEditChange={(field, value) => setEditValues({...editValues, [field]: value})}
                                                 darkMode={darkMode}
+                                                enableEditActivities={enableEditActivities}
                                             />
                                         ))}
                                     </div>
@@ -1315,6 +1450,7 @@
                                                 onCancelEdit={() => setEditingId(null)}
                                                 onEditChange={(field, value) => setEditValues({...editValues, [field]: value})}
                                                 darkMode={darkMode}
+                                                enableEditActivities={enableEditActivities}
                                             />
                                         ))}
                                     </div>
