@@ -320,36 +320,55 @@
             useEffect(() => {
                 const initializeGoogleAPI = async () => {
                     try {
-                        gapi.load('client', async () => {
-                            await gapi.client.init({
-                                clientId: '556805693341-ret1dnff9233en3u6en85cd04anubfep.apps.googleusercontent.com',
-                                scope: 'https://www.googleapis.com/auth/drive.appdata',
-                            });
+                        // Wait for gapi to load
+                        if (!window.gapi || !window.gapi.load) {
+                            console.error('gapi not loaded yet');
+                            setTimeout(initializeGoogleAPI, 1000);
+                            return;
+                        }
 
-                            const auth = gapi.auth2.getAuthInstance();
-                            const isSignedIn = auth.isSignedIn.get();
-                            setIsGoogleAuthed(isSignedIn);
+                        gapi.load('client:auth2', async () => {
+                            try {
+                                await gapi.auth2.init({
+                                    clientId: '556805693341-ret1dnff9233en3u6en85cd04anubfep.apps.googleusercontent.com',
+                                    scope: 'https://www.googleapis.com/auth/drive.appdata',
+                                });
 
-                            if (isSignedIn) {
-                                setGoogleAuthToken(auth.currentUser.get().getAuthResponse().access_token);
-                                // Auto-load data on startup if signed in
-                                setTimeout(() => loadFromGoogleDrive(auth.currentUser.get().getAuthResponse().access_token), 500);
-                            }
-
-                            // Listen for sign-in changes
-                            auth.isSignedIn.listen((isSignedIn) => {
-                                setIsGoogleAuthed(isSignedIn);
-                                if (isSignedIn) {
-                                    setGoogleAuthToken(auth.currentUser.get().getAuthResponse().access_token);
+                                const auth = gapi.auth2.getAuthInstance();
+                                if (!auth) {
+                                    console.error('Failed to get auth instance');
+                                    return;
                                 }
-                            });
+
+                                const isSignedIn = auth.isSignedIn.get();
+                                setIsGoogleAuthed(isSignedIn);
+
+                                if (isSignedIn) {
+                                    const token = auth.currentUser.get().getAuthResponse().access_token;
+                                    setGoogleAuthToken(token);
+                                    // Auto-load data on startup if signed in
+                                    setTimeout(() => loadFromGoogleDrive(token), 500);
+                                }
+
+                                // Listen for sign-in changes
+                                auth.isSignedIn.listen((isSignedIn) => {
+                                    setIsGoogleAuthed(isSignedIn);
+                                    if (isSignedIn) {
+                                        const token = auth.currentUser.get().getAuthResponse().access_token;
+                                        setGoogleAuthToken(token);
+                                    }
+                                });
+                            } catch (error) {
+                                console.error('Error initializing auth2:', error);
+                            }
                         });
                     } catch (error) {
-                        console.error('Error initializing Google API:', error);
+                        console.error('Error loading gapi:', error);
                     }
                 };
 
-                initializeGoogleAPI();
+                // Add a small delay to ensure scripts are loaded
+                setTimeout(initializeGoogleAPI, 500);
             }, []);
 
             // Load from localStorage on mount
@@ -386,16 +405,17 @@
             }, [autoSyncEnabled, isGoogleAuthed, googleAuthToken, activities, balance, logs]);
 
             const handleGoogleSignIn = async () => {
-                if (!googleClientId) {
-                    setShowClientIdInput(true);
-                    return;
-                }
-
                 try {
                     const auth = gapi.auth2.getAuthInstance();
+                    if (!auth) {
+                        console.error('Auth not initialized. Please refresh the page.');
+                        alert('Auth not ready. Please refresh the page.');
+                        return;
+                    }
                     await auth.signIn();
                 } catch (error) {
                     console.error('Sign in error:', error);
+                    alert('Sign in failed: ' + error.message);
                 }
             };
 
@@ -942,6 +962,25 @@
                                     >
                                         ⚙️ <span className="md:hidden text-xs">Settings</span>
                                     </button>
+                                    {isGoogleAuthed ? (
+                                        <button
+                                            onClick={handleGoogleSignOut}
+                                            className={`flex items-center gap-1 px-3 md:px-4 py-2 rounded-lg font-semibold transition flex-1 md:flex-none justify-center ${darkMode ? 'bg-green-700 hover:bg-green-600 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                                            title="Signed in to Google Drive"
+                                        >
+                                            <span className="text-sm">☁️</span>
+                                            <span className="md:hidden text-xs">Signed In</span>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={handleGoogleSignIn}
+                                            className={`flex items-center gap-1 px-3 md:px-4 py-2 rounded-lg font-semibold transition flex-1 md:flex-none justify-center ${darkMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                                            title="Sign in with Google Drive"
+                                        >
+                                            <span className="text-sm">🔵</span>
+                                            <span className="md:hidden text-xs">Sign In</span>
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                             
@@ -1074,65 +1113,6 @@
                                                             Enable Activity Editing (shows delete buttons)
                                                         </span>
                                                     </label>
-                                                </div>
-
-                                                <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
-                                                    <h4 className={`font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>☁️ Google Drive Sync</h4>
-                                                    {!isGoogleAuthed ? (
-                                                        <>
-                                                            <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                                                Sync your data across devices using Google Drive
-                                                            </p>
-                                                            <button
-                                                                onClick={handleGoogleSignIn}
-                                                                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mb-2"
-                                                            >
-                                                                Sign in with Google
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <p className={`text-sm mb-3 ${darkMode ? 'text-green-300' : 'text-green-600'}`}>
-                                                                ✓ Connected to Google Drive
-                                                            </p>
-                                                            <label className={`flex items-center gap-3 mb-3 cursor-pointer`}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={autoSyncEnabled}
-                                                                    onChange={(e) => setAutoSyncEnabled(e.target.checked)}
-                                                                    className="w-4 h-4"
-                                                                />
-                                                                <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                                                    Auto-save every minute
-                                                                </span>
-                                                            </label>
-                                                            <button
-                                                                onClick={() => saveToGoogleDrive(googleAuthToken)}
-                                                                disabled={syncStatus === 'syncing'}
-                                                                className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mb-2 disabled:opacity-50"
-                                                            >
-                                                                {syncStatus === 'syncing' ? '⟳ Syncing...' : '💾 Save Now'}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => loadFromGoogleDrive(googleAuthToken)}
-                                                                disabled={syncStatus === 'syncing'}
-                                                                className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm mb-2 disabled:opacity-50"
-                                                            >
-                                                                {syncStatus === 'syncing' ? '⟳ Loading...' : '📥 Load Now'}
-                                                            </button>
-                                                            {lastSyncTime && (
-                                                                <p className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                                    Last sync: {lastSyncTime}
-                                                                </p>
-                                                            )}
-                                                            <button
-                                                                onClick={handleGoogleSignOut}
-                                                                className="w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm"
-                                                            >
-                                                                Sign Out
-                                                            </button>
-                                                        </>
-                                                    )}
                                                 </div>
 
                                                 <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
