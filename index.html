@@ -16,7 +16,6 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body {
             margin: 0;
@@ -316,59 +315,53 @@
             const pendingCompletionsRef = useRef(new Set());
             const audioRef = useRef(null);
 
-            // Initialize Google API
+            // Initialize Google API with Drive access
             useEffect(() => {
-                const initializeGoogleAPI = async () => {
-                    try {
-                        // Wait for gapi to load
-                        if (!window.gapi || !window.gapi.load) {
-                            console.error('gapi not loaded yet');
-                            setTimeout(initializeGoogleAPI, 1000);
-                            return;
-                        }
-
-                        gapi.load('client:auth2', async () => {
-                            try {
-                                await gapi.auth2.init({
-                                    clientId: '556805693341-ret1dnff9233en3u6en85cd04anubfep.apps.googleusercontent.com',
-                                    scope: 'https://www.googleapis.com/auth/drive.appdata',
-                                });
-
-                                const auth = gapi.auth2.getAuthInstance();
-                                if (!auth) {
-                                    console.error('Failed to get auth instance');
-                                    return;
-                                }
-
-                                const isSignedIn = auth.isSignedIn.get();
-                                setIsGoogleAuthed(isSignedIn);
-
-                                if (isSignedIn) {
-                                    const token = auth.currentUser.get().getAuthResponse().access_token;
-                                    setGoogleAuthToken(token);
-                                    // Auto-load data on startup if signed in
-                                    setTimeout(() => loadFromGoogleDrive(token), 500);
-                                }
-
-                                // Listen for sign-in changes
-                                auth.isSignedIn.listen((isSignedIn) => {
-                                    setIsGoogleAuthed(isSignedIn);
-                                    if (isSignedIn) {
-                                        const token = auth.currentUser.get().getAuthResponse().access_token;
-                                        setGoogleAuthToken(token);
-                                    }
-                                });
-                            } catch (error) {
-                                console.error('Error initializing auth2:', error);
-                            }
-                        });
-                    } catch (error) {
-                        console.error('Error loading gapi:', error);
+                const initializeGoogleAPI = () => {
+                    if (!window.gapi) {
+                        console.log('gapi not loaded, retrying...');
+                        setTimeout(initializeGoogleAPI, 500);
+                        return;
                     }
+
+                    window.gapi.load('client:auth2', () => {
+                        window.gapi.client.init({
+                            apiKey: 'AIzaSyD1234567890', // Optional, not needed for auth
+                            clientId: '556805693341-ret1dnff9233en3u6en85cd04anubfep.apps.googleusercontent.com',
+                            scope: 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile',
+                            discoveryDocs: [],
+                        }).then(() => {
+                            console.log('gapi client initialized');
+                            const auth2 = window.gapi.auth2.getAuthInstance();
+                            
+                            // Check if user is already signed in
+                            if (auth2.isSignedIn.get()) {
+                                setIsGoogleAuthed(true);
+                                const token = auth2.currentUser.get().getAuthResponse(true).id_token;
+                                setGoogleAuthToken(token);
+                                setTimeout(() => loadFromGoogleDrive(token), 500);
+                            }
+
+                            // Listen for sign-in state changes
+                            auth2.isSignedIn.listen(isSignedIn => {
+                                console.log('Sign-in state changed:', isSignedIn);
+                                setIsGoogleAuthed(isSignedIn);
+                                if (isSignedIn) {
+                                    const user = auth2.currentUser.get();
+                                    const profile = user.getBasicProfile();
+                                    const token = user.getAuthResponse(true).id_token;
+                                    setGoogleAuthToken(token);
+                                    console.log('Signed in as:', profile.getEmail());
+                                    addLog('Cloud Sync', 'Signed in to Google');
+                                }
+                            });
+                        }).catch(error => {
+                            console.error('gapi initialization error:', error);
+                        });
+                    });
                 };
 
-                // Add a small delay to ensure scripts are loaded
-                setTimeout(initializeGoogleAPI, 500);
+                initializeGoogleAPI();
             }, []);
 
             // Load from localStorage on mount
@@ -404,27 +397,33 @@
                 return () => clearInterval(saveInterval);
             }, [autoSyncEnabled, isGoogleAuthed, googleAuthToken, activities, balance, logs]);
 
+            const handleGoogleCallback = async (response) => {
+                // Not used with gapi
+            };
+
             const handleGoogleSignIn = async () => {
                 try {
-                    const auth = gapi.auth2.getAuthInstance();
-                    if (!auth) {
-                        console.error('Auth not initialized. Please refresh the page.');
-                        alert('Auth not ready. Please refresh the page.');
+                    if (!window.gapi || !window.gapi.auth2) {
+                        alert('Google services not loaded. Please refresh the page and wait a moment before clicking.');
                         return;
                     }
-                    await auth.signIn();
+                    const auth2 = window.gapi.auth2.getAuthInstance();
+                    console.log('Attempting sign in...');
+                    await auth2.signIn();
                 } catch (error) {
                     console.error('Sign in error:', error);
-                    alert('Sign in failed: ' + error.message);
+                    alert('Sign in failed. Please check the console for details.');
                 }
             };
 
             const handleGoogleSignOut = async () => {
                 try {
-                    const auth = gapi.auth2.getAuthInstance();
-                    await auth.signOut();
+                    if (!window.gapi || !window.gapi.auth2) return;
+                    const auth2 = window.gapi.auth2.getAuthInstance();
+                    await auth2.signOut();
                     setIsGoogleAuthed(false);
                     setGoogleAuthToken(null);
+                    addLog('Cloud Sync', 'Signed out from Google');
                 } catch (error) {
                     console.error('Sign out error:', error);
                 }
