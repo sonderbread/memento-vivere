@@ -44,17 +44,20 @@
         const { useState, useEffect, useRef } = React;
 
         const SUGGESTED_ACTIVITIES = [
-            { name: 'Laundry Running', rate: 0.5, type: 'credit', isCountdown: true },
-            { name: 'Dishwasher Running', rate: 0.5, type: 'credit', isCountdown: true },
-            { name: 'Cleaning / Dishes', rate: 1, type: 'credit' },
-            { name: 'Grocery Shopping', rate: 1, type: 'credit' },
-            { name: 'Exercise', rate: 2, type: 'credit' },
-            { name: 'Dog / Fetch', rate: 1, type: 'credit' },
-            { name: 'Emails/Calendar', rate: 1, type: 'credit' },
-            { name: 'Watch something', rate: 1, type: 'debit', isCountdown: true },
-            { name: 'Video Games', rate: 1, type: 'debit' },
-            { name: 'Creative Play (Art/Music)', rate: 0.5, type: 'debit' },
-            { name: 'Nap', rate: 1, type: 'debit' },
+            { name: 'Laundry Running', rate: 0.5, type: 'credit', isCountdown: true, mode: 'countdown' },
+            { name: 'Dishwasher Running', rate: 0.5, type: 'credit', isCountdown: true, mode: 'countdown' },
+            { name: 'Cleaning / Dishes', rate: 1, type: 'credit', mode: 'stopwatch' },
+            { name: 'Grocery Shopping', rate: 1, type: 'credit', mode: 'stopwatch' },
+            { name: 'Exercise', rate: 2, type: 'credit', mode: 'stopwatch' },
+            { name: 'Dog / Fetch', rate: 1, type: 'credit', mode: 'stopwatch' },
+            { name: 'Emails/Calendar', rate: 1, type: 'credit', mode: 'stopwatch' },
+            { name: 'Take out the garbage/recycling', points: 15, type: 'credit', mode: 'single' },
+            { name: 'Put away laundry (1 load)', points: 15, type: 'credit', mode: 'single' },
+            { name: 'Scoop Cat Litter', points: 15, type: 'credit', mode: 'single' },
+            { name: 'Watch something', rate: 1, type: 'debit', isCountdown: true, mode: 'countdown' },
+            { name: 'Video Games', rate: 1, type: 'debit', mode: 'stopwatch' },
+            { name: 'Creative Play (Art/Music)', rate: 0.5, type: 'debit', mode: 'stopwatch' },
+            { name: 'Nap', rate: 1, type: 'debit', mode: 'stopwatch' },
         ];
 
         // Icon components (simplified SVG versions)
@@ -158,14 +161,6 @@
                                 onChange={(e) => onEditChange('name', e.target.value)}
                                 className={`border rounded px-3 py-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300'}`}
                             />
-                            <input
-                                type="number"
-                                value={editValues.rate}
-                                onChange={(e) => onEditChange('rate', parseFloat(e.target.value) || 1)}
-                                min="0.1"
-                                step="0.1"
-                                className={`border rounded px-3 py-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300'}`}
-                            />
                             <select
                                 value={editValues.type}
                                 onChange={(e) => onEditChange('type', e.target.value)}
@@ -174,20 +169,41 @@
                                 <option value="credit">Credit</option>
                                 <option value="debit">Debit</option>
                             </select>
+                            {editValues.mode === 'single' ? (
+                                <input
+                                    type="number"
+                                    value={editValues.points}
+                                    onChange={(e) => onEditChange('points', parseInt(e.target.value) || 1)}
+                                    min="1"
+                                    step="1"
+                                    className={`border rounded px-3 py-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300'}`}
+                                />
+                            ) : (
+                                <input
+                                    type="number"
+                                    value={editValues.rate}
+                                    onChange={(e) => onEditChange('rate', parseFloat(e.target.value) || 1)}
+                                    min="0.1"
+                                    step="0.1"
+                                    className={`border rounded px-3 py-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300'}`}
+                                />
+                            )}
                             <div />
                         </div>
-                        <div className="mb-3 flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                checked={editValues.isCountdown || false}
-                                onChange={(e) => onEditChange('isCountdown', e.target.checked)}
-                                id={`countdown-${editValues.id}`}
-                                className="w-4 h-4"
-                            />
-                            <label htmlFor={`countdown-${editValues.id}`} className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                Countdown timer
-                            </label>
-                        </div>
+                        {editValues.mode === 'countdown' && (
+                            <div className="mb-3 flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={editValues.isCountdown || false}
+                                    onChange={(e) => onEditChange('isCountdown', e.target.checked)}
+                                    id={`countdown-${editValues.id}`}
+                                    className="w-4 h-4"
+                                />
+                                <label htmlFor={`countdown-${editValues.id}`} className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Countdown timer
+                                </label>
+                            </div>
+                        )}
                         <div className="flex gap-2">
                             <button
                                 onClick={onSaveEdit}
@@ -214,18 +230,26 @@
                 }`}>
                     <div className="flex-1">
                         <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{activity.name}</h3>
-                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{activity.rate} pts/min</p>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {activity.mode === 'single' ? `${activity.points} pts` : `${activity.rate} pts/min`}
+                        </p>
                     </div>
                     <div className="flex gap-2">
                         <button
                             onClick={onStartTimer}
                             className={`flex items-center gap-1 px-4 py-2 rounded font-semibold transition text-white ${
-                                isActive
+                                activity.mode === 'single'
+                                    ? 'bg-green-500 hover:bg-green-600'
+                                    : isActive
                                     ? 'bg-indigo-600 hover:bg-indigo-700'
                                     : 'bg-indigo-500 hover:bg-indigo-600'
                             }`}
                         >
-                            <Play size={16} /> Start
+                            {activity.mode === 'single' ? (
+                                <>✓ Complete</>
+                            ) : (
+                                <><Play size={16} /> Start</>
+                            )}
                         </button>
                         <button
                             onClick={onEdit}
@@ -252,7 +276,7 @@
             const [editingId, setEditingId] = useState(null);
             const [editValues, setEditValues] = useState({});
             const [showAddForm, setShowAddForm] = useState(false);
-            const [newActivity, setNewActivity] = useState({ name: '', rate: 1, type: 'credit', isCountdown: false });
+            const [newActivity, setNewActivity] = useState({ name: '', rate: 1, type: 'credit', isCountdown: false, mode: 'stopwatch', points: 5 });
             const [completionPrompt, setCompletionPrompt] = useState(null);
             const [showSettings, setShowSettings] = useState(false);
             const [balanceAdjustment, setBalanceAdjustment] = useState({ amount: 0, reason: '' });
@@ -270,6 +294,7 @@
             const [showWipeConfirm, setShowWipeConfirm] = useState(false);
             const [countdownPrompt, setCountdownPrompt] = useState(null); // { activityId, hours, minutes, seconds }
             const [completionAlert, setCompletionAlert] = useState(null); // { activityName, activityId }
+            const pendingCompletionsRef = useRef(new Set());
             const audioRef = useRef(null);
 
             // Load from localStorage on mount
@@ -307,10 +332,12 @@
                                 const remaining = Math.max(0, timer.totalSeconds - elapsed);
                                 updated[activityId] = remaining;
                                 
-                                // Auto-stop when time is up
-                                if (elapsed >= timer.totalSeconds) {
+                                // Auto-stop when time is up - only once per timer
+                                if (elapsed >= timer.totalSeconds && !pendingCompletionsRef.current.has(activityId)) {
+                                    pendingCompletionsRef.current.add(activityId);
                                     setTimeout(() => {
                                         completeTimer(Number(activityId));
+                                        pendingCompletionsRef.current.delete(activityId);
                                     }, 100);
                                 }
                             } else {
@@ -335,13 +362,37 @@
                 localStorage.setItem('memento-hideBalance', JSON.stringify(hideBalance));
             }, [hideBalance]);
 
-            const stopTimer = (id) => {
-                completeTimer(id);
+            const completeSingleItem = (id) => {
+                const activity = activities.find(a => a.id === id);
+                if (!activity || activity.mode !== 'single') return;
+
+                const points = activity.points || 5;
+                const newBalance = activity.type === 'credit' ? balance + points : balance - points;
+                setBalance(newBalance);
+
+                addLog(
+                    activity.type === 'credit' ? 'Earned' : 'Spent',
+                    `${activity.name}: ${points} pts (Single Item)`
+                );
+
+                setCompletionAlert({
+                    activityName: activity.name,
+                    activityId: id,
+                    timeSpent: 0,
+                    points: points,
+                    type: activity.type
+                });
             };
 
             const startTimer = (id) => {
                 const activity = activities.find(a => a.id === id);
                 if (!activity) return;
+
+                // If it's a single-item activity, complete it immediately
+                if (activity.mode === 'single') {
+                    completeSingleItem(id);
+                    return;
+                }
 
                 // If it's a countdown activity and not already running, show duration prompt
                 if (activity.isCountdown && !runningTimers[id]) {
@@ -435,11 +486,17 @@
                 const activity = {
                     ...newActivity,
                     id: Date.now(),
-                    rate: Math.max(1, parseFloat(newActivity.rate) || 1),
-                    isCountdown: newActivity.isCountdown || false
+                    mode: newActivity.mode || 'stopwatch'
                 };
+                
+                if (activity.mode === 'single') {
+                    activity.points = Math.max(1, parseInt(newActivity.points) || 5);
+                } else {
+                    activity.rate = Math.max(0.1, parseFloat(newActivity.rate) || 1);
+                }
+                
                 setActivities([...activities, activity]);
-                setNewActivity({ name: '', rate: 1, type: 'credit', isCountdown: false });
+                setNewActivity({ name: '', rate: 1, type: 'credit', isCountdown: false, mode: 'stopwatch', points: 5 });
                 setShowAddForm(false);
             };
 
@@ -860,11 +917,13 @@
                                                 {completionAlert.type === 'credit' ? '+' : '-'}{completionAlert.points} pts
                                             </p>
                                             <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                {formatTime(completionAlert.timeSpent)}
+                                                {completionAlert.timeSpent > 0 ? formatTime(completionAlert.timeSpent) : 'Single Item'}
                                             </p>
                                         </div>
                                         <button
-                                            onClick={() => setCompletionAlert(null)}
+                                            onClick={() => {
+                                                setCompletionAlert(null);
+                                            }}
                                             className="w-full bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-3 rounded-lg font-semibold transition"
                                         >
                                             Got It!
@@ -1049,31 +1108,66 @@
                                         <option value="credit">Credit (Earn)</option>
                                         <option value="debit">Debit (Spend)</option>
                                     </select>
-                                    <div>
-                                        <input
-                                            type="number"
-                                            placeholder="Points per minute"
-                                            value={newActivity.rate}
-                                            onChange={(e) => setNewActivity({...newActivity, rate: e.target.value})}
-                                            min="0.1"
-                                            step="0.1"
-                                            className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
-                                        />
-                                        <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>pts/min</p>
+                                    <select
+                                        value={newActivity.mode || 'stopwatch'}
+                                        onChange={(e) => setNewActivity({...newActivity, mode: e.target.value})}
+                                        className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                    >
+                                        <option value="stopwatch">Stopwatch</option>
+                                        <option value="countdown">Countdown</option>
+                                        <option value="single">Single Item</option>
+                                    </select>
+                                </div>
+                                
+                                {(newActivity.mode === 'stopwatch' || newActivity.mode === 'countdown') && (
+                                    <div className="mb-4">
+                                        <div>
+                                            <input
+                                                type="number"
+                                                placeholder="Points per minute"
+                                                value={newActivity.rate}
+                                                onChange={(e) => setNewActivity({...newActivity, rate: e.target.value})}
+                                                min="0.1"
+                                                step="0.1"
+                                                className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                            />
+                                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>pts/min</p>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="mb-4 flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={newActivity.isCountdown || false}
-                                        onChange={(e) => setNewActivity({...newActivity, isCountdown: e.target.checked})}
-                                        id="countdown-new"
-                                        className="w-4 h-4"
-                                    />
-                                    <label htmlFor="countdown-new" className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                        Countdown timer
-                                    </label>
-                                </div>
+                                )}
+                                
+                                {newActivity.mode === 'single' && (
+                                    <div className="mb-4">
+                                        <div>
+                                            <input
+                                                type="number"
+                                                placeholder="Points for this task"
+                                                value={newActivity.points}
+                                                onChange={(e) => setNewActivity({...newActivity, points: e.target.value})}
+                                                min="1"
+                                                step="1"
+                                                className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                            />
+                                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>total points</p>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {newActivity.mode === 'countdown' && (
+                                    <div className="mb-4 flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={newActivity.isCountdown || false}
+                                            onChange={(e) => setNewActivity({...newActivity, isCountdown: e.target.checked})}
+                                            id="countdown-new"
+                                            className="w-4 h-4"
+                                        />
+                                        <label htmlFor="countdown-new" className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            Use countdown timer (will ask for duration)
+                                        </label>
+                                    </div>
+                                )}
+                                
                                 <div className="flex flex-col md:flex-row gap-2">
                                     <button
                                         onClick={addActivity}
@@ -1100,9 +1194,10 @@
                                             key={idx}
                                             onClick={() => {
                                                 setActivities([...activities, { ...activity, id: Date.now() + Math.random() }]);
-                                                addLog('Activity Added', `${activity.name} - ${activity.rate} pts/min (${activity.type})`);
+                                                const desc = activity.mode === 'single' ? `${activity.points} pts (Single Item)` : `${activity.rate} pts/min (${activity.type})`;
+                                                addLog('Activity Added', `${activity.name} - ${desc}`);
                                                 setShowAddForm(false);
-                                                setNewActivity({ name: '', rate: 1, type: 'credit', isCountdown: false });
+                                                setNewActivity({ name: '', rate: 1, type: 'credit', isCountdown: false, mode: 'stopwatch', points: 5 });
                                             }}
                                             className={`p-2 md:p-3 rounded-lg border-2 text-left transition text-xs md:text-sm ${
                                                 activity.type === 'credit'
@@ -1114,18 +1209,25 @@
                                                 <div className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                                                     {activity.name}
                                                 </div>
-                                                {activity.isCountdown && (
-                                                    <span className="text-xs px-1 py-0.5 rounded bg-opacity-50 bg-gray-700 text-gray-200 whitespace-nowrap">
-                                                        ⏱
-                                                    </span>
-                                                )}
+                                                <div className="flex gap-1">
+                                                    {activity.mode === 'countdown' && (
+                                                        <span className="text-xs px-1 py-0.5 rounded bg-opacity-50 bg-gray-700 text-gray-200 whitespace-nowrap">
+                                                            ⏱
+                                                        </span>
+                                                    )}
+                                                    {activity.mode === 'single' && (
+                                                        <span className="text-xs px-1 py-0.5 rounded bg-opacity-50 bg-purple-700 text-purple-200 whitespace-nowrap">
+                                                            ✓
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className={`text-xs ${
                                                 activity.type === 'credit'
                                                     ? darkMode ? 'text-green-300' : 'text-green-700'
                                                     : darkMode ? 'text-red-300' : 'text-red-700'
                                             }`}>
-                                                {activity.type === 'credit' ? '+' : '-'}{activity.rate}/min
+                                                {activity.type === 'credit' ? '+' : '-'}{activity.mode === 'single' ? activity.points : activity.rate + '/min'}
                                             </div>
                                         </button>
                                     ))}
