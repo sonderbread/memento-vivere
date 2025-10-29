@@ -584,6 +584,10 @@
                 setRunningTimers(newTimers);
             };
 
+            const stopTimer = (id) => {
+                completeTimer(id);
+            };
+
             const handleCompletionYes = () => {
                 if (!completionPrompt) return;
 
