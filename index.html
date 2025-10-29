@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Memento Vivere - Synced</title>
+    <title>Memento Vivere</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1f2937">
     <meta name="description" content="Track your time, invest in your life. Remember to live.">
@@ -15,10 +15,6 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
     <style>
         body {
             margin: 0;
@@ -46,33 +42,6 @@
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
-
-        // ========== FIREBASE CONFIGURATION ==========
-        const firebaseConfig = {
-            apiKey: "AIzaSyBcPjgPRNUgX8N6o8vyv_Y-EWjXgPGWP94",
-            authDomain: "memento-avenire.firebaseapp.com",
-            databaseURL: "https://memento-avenire.firebaseio.com",
-            projectId: "memento-avenire",
-            storageBucket: "memento-avenire.firebasestorage.app",
-            messagingSenderId: "793312075993",
-            appId: "1:793312075993:web:69543ffa6fc430edd4dec8"
-        };
-
-        // Initialize Firebase
-        let firebaseInitialized = false;
-        let db = null;
-        let auth = null;
-        let currentUser = null;
-
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.database();
-            auth = firebase.auth();
-            firebaseInitialized = true;
-            console.log("Firebase initialized successfully");
-        } catch (error) {
-            console.log("Firebase initialization error:", error);
-        }
 
         const SUGGESTED_ACTIVITIES = [
             { name: 'Laundry Running', rate: 0.5, type: 'credit', isCountdown: true, mode: 'countdown' },
@@ -181,235 +150,529 @@
             </svg>
         );
 
-        const LogOut = ({ size = 24 }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
-        );
+        function ActivityItem({ activity, isActive, isEditing, editValues, onStartTimer, onDelete, onEdit, onSaveEdit, onCancelEdit, onEditChange, darkMode, enableEditActivities }) {
+            if (isEditing) {
+                return (
+                    <div className={`${darkMode ? 'bg-gray-700 border-2 border-indigo-400' : 'bg-gray-50 border-2 border-indigo-300'} rounded-lg p-4 transition-colors`}>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                            <input
+                                type="text"
+                                value={editValues.name}
+                                onChange={(e) => onEditChange('name', e.target.value)}
+                                className={`border rounded px-3 py-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300'}`}
+                            />
+                            <select
+                                value={editValues.type}
+                                onChange={(e) => onEditChange('type', e.target.value)}
+                                className={`border rounded px-3 py-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300'}`}
+                            >
+                                <option value="credit">Credit</option>
+                                <option value="debit">Debit</option>
+                            </select>
+                            {editValues.mode === 'single' ? (
+                                <input
+                                    type="number"
+                                    value={editValues.points}
+                                    onChange={(e) => onEditChange('points', parseInt(e.target.value) || 1)}
+                                    min="1"
+                                    step="1"
+                                    className={`border rounded px-3 py-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300'}`}
+                                />
+                            ) : (
+                                <input
+                                    type="number"
+                                    value={editValues.rate}
+                                    onChange={(e) => onEditChange('rate', parseFloat(e.target.value) || 1)}
+                                    min="0.1"
+                                    step="0.1"
+                                    className={`border rounded px-3 py-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'border-gray-300'}`}
+                                />
+                            )}
+                            <div />
+                        </div>
+                        {editValues.mode === 'countdown' && (
+                            <div className="mb-3 flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={editValues.isCountdown || false}
+                                    onChange={(e) => onEditChange('isCountdown', e.target.checked)}
+                                    id={`countdown-${editValues.id}`}
+                                    className="w-4 h-4"
+                                />
+                                <label htmlFor={`countdown-${editValues.id}`} className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Countdown timer
+                                </label>
+                            </div>
+                        )}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={onSaveEdit}
+                                className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm font-semibold transition"
+                            >
+                                <Check size={16} /> Save
+                            </button>
+                            <button
+                                onClick={onCancelEdit}
+                                className="flex items-center gap-1 bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded text-sm font-semibold transition"
+                            >
+                                <X size={16} /> Cancel
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
 
-        // Main App Component
+            return (
+                <div className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${
+                    isActive 
+                        ? darkMode ? 'bg-indigo-900 border-indigo-500' : 'bg-indigo-100 border-indigo-500'
+                        : darkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                }`}>
+                    <div className="flex-1">
+                        <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{activity.name}</h3>
+                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {activity.mode === 'single' ? `${activity.points} pts` : `${activity.rate} pts/min`}
+                        </p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={onStartTimer}
+                            className={`flex items-center gap-1 px-4 py-2 rounded font-semibold transition text-white ${
+                                activity.mode === 'single'
+                                    ? 'bg-green-500 hover:bg-green-600'
+                                    : isActive
+                                    ? 'bg-indigo-600 hover:bg-indigo-700'
+                                    : 'bg-indigo-500 hover:bg-indigo-600'
+                            }`}
+                        >
+                            {activity.mode === 'single' ? (
+                                <>✓ Complete</>
+                            ) : (
+                                <><Play size={16} /> Start</>
+                            )}
+                        </button>
+                        <button
+                            onClick={onEdit}
+                            className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded font-semibold transition"
+                        >
+                            <Edit2 size={16} />
+                        </button>
+                        {enableEditActivities && (
+                            <button
+                                onClick={onDelete}
+                                className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded font-semibold transition"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
         function TaskTimer() {
             const [activities, setActivities] = useState([]);
-            const [totalTime, setTotalTime] = useState(() => {
-                const saved = localStorage.getItem('totalTime');
-                return saved ? parseInt(saved) : 0;
-            });
-            const [darkMode, setDarkMode] = useState(() => {
-                const saved = localStorage.getItem('darkMode');
-                return saved ? JSON.parse(saved) : true;
-            });
-            const [runningTimers, setRunningTimers] = useState({});
-            const [showAddForm, setShowAddForm] = useState(false);
-            const [newActivity, setNewActivity] = useState({ name: '', rate: 1, points: 10, type: 'credit', mode: 'stopwatch' });
+            const [balance, setBalance] = useState(0);
+            const [runningTimers, setRunningTimers] = useState({}); // { activityId: { startTime, isPaused, pausedElapsed } }
+            const [timerDisplays, setTimerDisplays] = useState({}); // { activityId: elapsedSeconds } - for UI updates
             const [editingId, setEditingId] = useState(null);
             const [editValues, setEditValues] = useState({});
-            const [sortBy, setSortBy] = useState('name');
+            const [showAddForm, setShowAddForm] = useState(false);
+            const [newActivity, setNewActivity] = useState({ name: '', rate: 1, type: 'credit', isCountdown: false, mode: 'stopwatch', points: 5 });
+            const [completionPrompt, setCompletionPrompt] = useState(null);
+            const [showSettings, setShowSettings] = useState(false);
+            const [balanceAdjustment, setBalanceAdjustment] = useState({ amount: 0, reason: '' });
+            const [logs, setLogs] = useState([]);
+            const [showLogs, setShowLogs] = useState(false);
+            const [darkMode, setDarkMode] = useState(() => {
+                const saved = localStorage.getItem('memento-darkMode');
+                return saved ? JSON.parse(saved) : true;
+            });
+            const [hideBalance, setHideBalance] = useState(() => {
+                const saved = localStorage.getItem('memento-hideBalance');
+                return saved ? JSON.parse(saved) : true;
+            });
+            const [sortBy, setSortBy] = useState('name'); // 'name', 'rate-asc', 'rate-desc'
+            const [showWipeConfirm, setShowWipeConfirm] = useState(false);
+            const [countdownPrompt, setCountdownPrompt] = useState(null); // { activityId, hours, minutes, seconds }
+            const [completionAlert, setCompletionAlert] = useState(null); // { activityName, activityId }
             const [enableEditActivities, setEnableEditActivities] = useState(false);
-            const [authMode, setAuthMode] = useState('login');
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [authError, setAuthError] = useState('');
-            const [isAuthenticating, setIsAuthenticating] = useState(false);
-            const [syncStatus, setSyncStatus] = useState('disconnected');
+            const [showCacheConfirm, setShowCacheConfirm] = useState(null); // null, 'soft', or 'hard'
+            const [settingsTab, setSettingsTab] = useState('balance'); // 'balance', 'logs', 'cache'
+            const pendingCompletionsRef = useRef(new Set());
             const audioRef = useRef(null);
-            const timerRef = useRef(null);
 
-            // Initialize Firebase Auth
+            // Load from localStorage on mount
             useEffect(() => {
-                if (!firebaseInitialized) {
-                    console.log("Firebase not available, using local storage only");
-                    loadActivitiesFromLocal();
-                    return;
+                const saved = localStorage.getItem('taskTimerData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    setActivities(data.activities || []);
+                    setBalance(data.balance || 0);
+                    setRunningTimers(data.runningTimers || {});
+                    setLogs(data.logs || []);
                 }
-
-                // Check if already authenticated
-                const unsubscribe = auth.onAuthStateChanged((user) => {
-                    if (user) {
-                        currentUser = user;
-                        setSyncStatus('connected');
-                        loadActivitiesFromFirebase(user.uid);
-                    } else {
-                        // Try anonymous login
-                        auth.signInAnonymously()
-                            .then((result) => {
-                                currentUser = result.user;
-                                setSyncStatus('connected');
-                                loadActivitiesFromFirebase(result.user.uid);
-                            })
-                            .catch((error) => {
-                                console.log("Anonymous login failed:", error);
-                                setSyncStatus('disconnected');
-                                loadActivitiesFromLocal();
-                            });
-                    }
-                });
-
-                return () => unsubscribe();
+                
+                // Request notification permission
+                if ('Notification' in window && Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
             }, []);
 
-            // Load activities from Firebase
-            const loadActivitiesFromFirebase = (uid) => {
-                if (!db) return;
+            // Save to localStorage whenever data changes
+            useEffect(() => {
+                localStorage.setItem('taskTimerData', JSON.stringify({ activities, balance, runningTimers, logs }));
+            }, [activities, balance, runningTimers, logs]);
 
-                const ref = db.ref(`users/${uid}/activities`);
-                ref.on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        const activitiesArray = Object.entries(data).map(([key, value]) => ({
-                            id: key,
-                            ...value
-                        }));
-                        setActivities(activitiesArray);
-                        localStorage.setItem('activities', JSON.stringify(activitiesArray));
-                    }
-                }, (error) => {
-                    console.log("Firebase read error:", error);
-                    loadActivitiesFromLocal();
-                });
-            };
-
-            // Load activities from local storage
-            const loadActivitiesFromLocal = () => {
-                const saved = localStorage.getItem('activities');
-                if (saved) {
-                    setActivities(JSON.parse(saved));
-                }
-            };
-
-            // Save activity to Firebase and local
-            const saveActivityToSync = (activitiesData) => {
-                localStorage.setItem('activities', JSON.stringify(activitiesData));
-
-                if (firebaseInitialized && currentUser && db) {
-                    const updates = {};
-                    activitiesData.forEach(activity => {
-                        const { id, ...activityData } = activity;
-                        updates[`users/${currentUser.uid}/activities/${id}`] = activityData;
+            // Timer interval - update all running timers based on timestamps
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setTimerDisplays(prev => {
+                        const updated = {};
+                        Object.entries(runningTimers).forEach(([activityId, timer]) => {
+                            if (timer.isPaused) {
+                                updated[activityId] = timer.pausedElapsed;
+                            } else if (timer.isCountdown) {
+                                const elapsed = Math.floor((Date.now() - timer.startTime) / 1000);
+                                const remaining = Math.max(0, timer.totalSeconds - elapsed);
+                                updated[activityId] = remaining;
+                                
+                                // Auto-stop when time is up - only once per timer
+                                if (elapsed >= timer.totalSeconds && !pendingCompletionsRef.current.has(activityId)) {
+                                    pendingCompletionsRef.current.add(activityId);
+                                    setTimeout(() => {
+                                        completeTimer(Number(activityId));
+                                        pendingCompletionsRef.current.delete(activityId);
+                                    }, 100);
+                                }
+                            } else {
+                                const elapsed = Math.floor((Date.now() - timer.startTime) / 1000);
+                                updated[activityId] = elapsed;
+                            }
+                        });
+                        return updated;
                     });
-                    db.ref().update(updates).catch(error => console.log("Firebase update error:", error));
-                }
-            };
+                }, 100); // Update 10x per second for smooth display
 
-            // Delete activity from Firebase and local
-            const deleteActivityFromSync = (activityId) => {
-                if (firebaseInitialized && currentUser && db) {
-                    db.ref(`users/${currentUser.uid}/activities/${activityId}`).remove()
-                        .catch(error => console.log("Firebase delete error:", error));
-                }
-            };
-
-            // Add Activity
-            const addActivity = () => {
-                if (!newActivity.name.trim()) return;
-
-                const activity = {
-                    id: Date.now().toString(),
-                    name: newActivity.name,
-                    rate: parseFloat(newActivity.rate),
-                    points: parseInt(newActivity.points),
-                    type: newActivity.type,
-                    mode: newActivity.mode,
-                    isCountdown: newActivity.mode === 'countdown'
-                };
-
-                const updated = [...activities, activity];
-                setActivities(updated);
-                saveActivityToSync(updated);
-                setNewActivity({ name: '', rate: 1, points: 10, type: 'credit', mode: 'stopwatch' });
-                setShowAddForm(false);
-            };
-
-            // Delete Activity
-            const deleteActivity = (id) => {
-                const updated = activities.filter(a => a.id !== id);
-                setActivities(updated);
-                deleteActivityFromSync(id);
-                saveActivityToSync(updated);
-            };
-
-            // Start Editing
-            const startEditing = (activity) => {
-                setEditingId(activity.id);
-                setEditValues({ ...activity });
-            };
-
-            // Save Edit
-            const saveEdit = (id) => {
-                const updated = activities.map(a => a.id === id ? editValues : a);
-                setActivities(updated);
-                saveActivityToSync(updated);
-                setEditingId(null);
-            };
-
-            // Format Time
-            const formatTime = (ms) => {
-                const totalSeconds = Math.floor(ms / 1000);
-                const hours = Math.floor(totalSeconds / 3600);
-                const minutes = Math.floor((totalSeconds % 3600) / 60);
-                const seconds = totalSeconds % 60;
-                return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-            };
-
-            // Start Timer
-            const startTimer = (activityId) => {
-                if (runningTimers[activityId]) {
-                    clearInterval(runningTimers[activityId].interval);
-                    const { startTime, activity } = runningTimers[activityId];
-                    const elapsed = Date.now() - startTime;
-
-                    const newTotal = totalTime + elapsed;
-                    const pointsChange = activity.mode === 'single' 
-                        ? (activity.type === 'credit' ? activity.points : -activity.points)
-                        : (activity.type === 'credit' ? (elapsed / 1000 / 60) * activity.rate : -((elapsed / 1000 / 60) * activity.rate));
-
-                    setTotalTime(newTotal);
-                    localStorage.setItem('totalTime', newTotal.toString());
-
-                    if (firebaseInitialized && currentUser && db) {
-                        const updates = {
-                            [`users/${currentUser.uid}/stats/totalTime`]: newTotal,
-                        };
-                        updates[`users/${currentUser.uid}/activities/${activityId}/lastUsed`] = Date.now();
-                        db.ref().update(updates).catch(error => console.log("Firebase update error:", error));
-                    }
-
-                    const newTimers = { ...runningTimers };
-                    delete newTimers[activityId];
-                    setRunningTimers(newTimers);
-
-                    if (audioRef.current) audioRef.current.play();
-                } else {
-                    const interval = setInterval(() => {
-                        setRunningTimers(prev => ({ ...prev }));
-                    }, 100);
-
-                    setRunningTimers(prev => ({
-                        ...prev,
-                        [activityId]: {
-                            startTime: Date.now(),
-                            activity: activities.find(a => a.id === activityId),
-                            interval
-                        }
-                    }));
-                }
-            };
+                return () => clearInterval(interval);
+            }, [runningTimers]);
 
             // Save dark mode preference
             useEffect(() => {
-                localStorage.setItem('darkMode', JSON.stringify(darkMode));
+                localStorage.setItem('memento-darkMode', JSON.stringify(darkMode));
             }, [darkMode]);
 
-            // Logout
-            const handleLogout = () => {
-                if (firebaseInitialized && auth) {
-                    auth.signOut().catch(error => console.log("Logout error:", error));
+            // Save hide balance preference
+            useEffect(() => {
+                localStorage.setItem('memento-hideBalance', JSON.stringify(hideBalance));
+            }, [hideBalance]);
+
+            const completeSingleItem = (id) => {
+                const activity = activities.find(a => a.id === id);
+                if (!activity || activity.mode !== 'single') return;
+
+                const points = activity.points || 5;
+                const newBalance = activity.type === 'credit' ? balance + points : balance - points;
+                setBalance(newBalance);
+
+                addLog(
+                    activity.type === 'credit' ? 'Earned' : 'Spent',
+                    `${activity.name}: ${points} pts (Single Item)`
+                );
+
+                setCompletionAlert({
+                    activityName: activity.name,
+                    activityId: id,
+                    timeSpent: 0,
+                    points: points,
+                    type: activity.type
+                });
+            };
+
+            const startTimer = (id) => {
+                const stringId = String(id);
+                const activity = activities.find(a => a.id === id);
+                if (!activity) return;
+
+                // If it's a single-item activity, complete it immediately
+                if (activity.mode === 'single') {
+                    completeSingleItem(id);
+                    return;
+                }
+
+                // If it's a countdown activity and not already running, show duration prompt
+                if (activity.isCountdown && !runningTimers[stringId]) {
+                    setCountdownPrompt({ activityId: id, hours: 0, minutes: 0, seconds: 0 });
+                    return;
+                }
+
+                if (runningTimers[stringId]) {
+                    // Toggle pause/resume
+                    if (runningTimers[stringId].isPaused) {
+                        // Resume
+                        const pausedElapsed = runningTimers[stringId].pausedElapsed;
+                        if (runningTimers[stringId].isCountdown) {
+                            // For countdown, adjust the startTime so elapsed time continues correctly
+                            setRunningTimers({
+                                ...runningTimers,
+                                [stringId]: {
+                                    ...runningTimers[stringId],
+                                    startTime: Date.now() - (pausedElapsed * 1000),
+                                    isPaused: false,
+                                    pausedElapsed: 0
+                                }
+                            });
+                        } else {
+                            setRunningTimers({
+                                ...runningTimers,
+                                [stringId]: {
+                                    startTime: Date.now() - (pausedElapsed * 1000),
+                                    isPaused: false,
+                                    pausedElapsed: 0
+                                }
+                            });
+                        }
+                        addLog('Timer Resumed', activity.name);
+                    } else {
+                        // Pause
+                        setRunningTimers({
+                            ...runningTimers,
+                            [stringId]: {
+                                ...runningTimers[stringId],
+                                isPaused: true,
+                                pausedElapsed: timerDisplays[stringId] || 0
+                            }
+                        });
+                        addLog('Timer Paused', activity.name);
+                    }
+                } else {
+                    // Start new timer (non-countdown, countdown goes through dialog)
+                    setRunningTimers({
+                        ...runningTimers,
+                        [stringId]: {
+                            startTime: Date.now(),
+                            isPaused: false,
+                            pausedElapsed: 0
+                        }
+                    });
+                    addLog('Timer Started', activity.name);
                 }
             };
 
-            // Sort Activities
-            const getSortedActivities = (actsList) => {
+            const startCountdownTimer = (activityId, totalSeconds) => {
+                const activity = activities.find(a => a.id === activityId);
+                if (!activity) return;
+
+                const stringId = String(activityId);
+                setRunningTimers({
+                    ...runningTimers,
+                    [stringId]: {
+                        startTime: Date.now(),
+                        isCountdown: true,
+                        totalSeconds: totalSeconds,
+                        isPaused: false,
+                        pausedElapsed: 0
+                    }
+                });
+                setCountdownPrompt(null);
+                addLog('Countdown Started', `${activity.name} - ${formatTime(totalSeconds)}`);
+            };
+
+            const resetTimer = (id) => {
+                const stringId = String(id);
+                const newTimers = { ...runningTimers };
+                delete newTimers[stringId];
+                setRunningTimers(newTimers);
+                
+                const newDisplays = { ...timerDisplays };
+                delete newDisplays[stringId];
+                setTimerDisplays(newDisplays);
+            };
+
+            const addActivity = () => {
+                if (!newActivity.name.trim()) return;
+                const activity = {
+                    ...newActivity,
+                    id: Date.now(),
+                    mode: newActivity.mode || 'stopwatch'
+                };
+                
+                if (activity.mode === 'single') {
+                    activity.points = Math.max(1, parseInt(newActivity.points) || 5);
+                } else {
+                    activity.rate = Math.max(0.1, parseFloat(newActivity.rate) || 1);
+                }
+                
+                setActivities([...activities, activity]);
+                setNewActivity({ name: '', rate: 1, type: 'credit', isCountdown: false, mode: 'stopwatch', points: 5 });
+                setShowAddForm(false);
+            };
+
+            const deleteActivity = (id) => {
+                setActivities(activities.filter(a => a.id !== id));
+                // Stop and remove timer if it's running
+                const newTimers = { ...runningTimers };
+                if (newTimers[String(id)]) {
+                    delete newTimers[String(id)];
+                    setRunningTimers(newTimers);
+                }
+            };
+
+            const startEditing = (activity) => {
+                setEditingId(activity.id);
+                setEditValues(activity);
+            };
+
+            const saveEdit = (id) => {
+                setActivities(activities.map(a => 
+                    a.id === id ? { ...a, ...editValues, rate: Math.max(0.1, parseFloat(editValues.rate) || 1) } : a
+                ));
+                setEditingId(null);
+            };
+
+            const completeTimer = (id) => {
+                const stringId = String(id);
+                const timer = runningTimers[stringId];
+                const activity = activities.find(a => a.id === id);
+                
+                // Remove from pending completions to prevent double-execution
+                pendingCompletionsRef.current.delete(stringId);
+                
+                if (!activity || !timer) {
+                    return;
+                }
+
+                let timeSpent = 0;
+                
+                if (timer.isCountdown) {
+                    // For countdown, calculate actual time used
+                    timeSpent = Math.floor((Date.now() - timer.startTime) / 1000);
+                    timeSpent = Math.min(timeSpent, timer.totalSeconds); // Cap at total seconds
+                } else {
+                    // For stopwatch, use elapsed time
+                    if (timer.isPaused) {
+                        timeSpent = timer.pausedElapsed;
+                    } else {
+                        timeSpent = Math.floor((Date.now() - timer.startTime) / 1000);
+                    }
+                }
+
+                if (timeSpent > 0) {
+                    const minutes = timeSpent / 60;
+                    const points = Math.round(minutes * activity.rate);
+                    
+                    // Award points
+                    const newBalance = activity.type === 'credit' ? balance + points : balance - points;
+                    setBalance(newBalance);
+                    
+                    // Log the activity
+                    addLog(
+                        activity.type === 'credit' ? 'Earned' : 'Spent',
+                        `${activity.name}: ${points} pts (${formatTime(timeSpent)})`
+                    );
+                    
+                    // Show completion alert
+                    setCompletionAlert({ 
+                        activityName: activity.name, 
+                        activityId: id,
+                        timeSpent: timeSpent,
+                        points: points,
+                        type: activity.type
+                    });
+                    
+                    // Trigger browser notification if available
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('Timer Complete! ⏱', {
+                            body: `${activity.name} finished!\n${points} pts earned`,
+                            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><rect fill="%231f2937" width="180" height="180"/><circle cx="90" cy="90" r="75" fill="%2306b6d4"/><text x="90" y="105" font-size="70" font-weight="bold" fill="white" text-anchor="middle" font-family="Arial">⏱</text></svg>'
+                        });
+                    }
+                    
+                    // Play audio alert
+                    audioRef.current?.play();
+                }
+                
+                // Remove from running timers (convert id to string for matching)
+                const newTimers = { ...runningTimers };
+                delete newTimers[stringId];
+                setRunningTimers(newTimers);
+            };
+
+            const stopTimer = (id) => {
+                completeTimer(id);
+            };
+
+            const handleCompletionYes = () => {
+                if (!completionPrompt) return;
+
+                const minutes = completionPrompt.timeSpent / 60;  // Convert seconds to minutes
+                const points = Math.round(minutes * completionPrompt.rate);
+
+                if (completionPrompt.type === 'credit') {
+                    // Award points
+                    setBalance(b => b + points);
+                    addLog('Task Completed', `${completionPrompt.name} - Earned +${points} pts`);
+                } else {
+                    // Deduct points
+                    setBalance(b => Math.max(0, b - points));
+                    addLog('Reward Redeemed', `${completionPrompt.name} - Spent ${points} pts`);
+                }
+                
+                setCompletionPrompt(null);
+                setActiveTimer(null);
+                setTimeLeft(0);
+            };
+
+            const handleCompletionNo = () => {
+                setCompletionPrompt(null);
+                setActiveTimer(null);
+                setTimeLeft(0);
+            };
+
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            const addLog = (action, details = '') => {
+                const timestamp = new Date().toLocaleString();
+                setLogs(prev => [...prev, { timestamp, action, details }].slice(-100)); // Keep last 100 logs
+            };
+
+            const handleBalanceAdjustment = () => {
+                const amount = parseInt(balanceAdjustment.amount);
+                if (!isNaN(amount)) {
+                    setBalance(b => Math.max(0, b + amount));
+                    addLog('Balance Adjusted', `${amount > 0 ? '+' : ''}${amount} pts${balanceAdjustment.reason ? ' - ' + balanceAdjustment.reason : ''}`);
+                    setBalanceAdjustment({ amount: 0, reason: '' });
+                    setShowSettings(false);
+                }
+            };
+
+            const handleWipeData = () => {
+                setActivities([]);
+                setBalance(0);
+                setLogs([]);
+                setRunningTimers({});
+                setTimerDisplays({});
+                setNewActivity({ name: '', rate: 1, type: 'credit' });
+                setShowSettings(false);
+                setShowWipeConfirm(false);
+                setShowCacheConfirm(null);
+            };
+
+            const handleSoftClearCache = () => {
+                // Keep balance and activities, only clear logs
+                setLogs([]);
+                setRunningTimers({});
+                setTimerDisplays({});
+                setShowSettings(false);
+                setShowCacheConfirm(null);
+                addLog('Cache Cleared', 'Temporary data cleared while preserving activities and balance');
+            };
+
+            const sortActivities = (actsList) => {
                 const sorted = [...actsList];
                 if (sortBy === 'name') {
                     sorted.sort((a, b) => a.name.localeCompare(b.name));
@@ -421,213 +684,695 @@
                 return sorted;
             };
 
-            const creditActivities = getSortedActivities(activities.filter(a => a.type === 'credit'));
-            const debitActivities = getSortedActivities(activities.filter(a => a.type === 'debit'));
-
-            // Activity Item Component
-            const ActivityItem = ({ activity, isActive, isEditing, editValues, onStartTimer, onDelete, onEdit, onSaveEdit, onCancelEdit, onEditChange, darkMode, enableEditActivities }) => {
-                if (isEditing && enableEditActivities) {
-                    return (
-                        <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} flex gap-2`}>
-                            <input
-                                type="text"
-                                value={editValues.name || ''}
-                                onChange={(e) => onEditChange('name', e.target.value)}
-                                className={`flex-1 px-2 py-1 rounded text-sm ${darkMode ? 'bg-gray-600 text-white' : 'bg-white'}`}
-                                placeholder="Activity name"
-                            />
-                            <input
-                                type="number"
-                                value={editValues.rate || 1}
-                                onChange={(e) => onEditChange('rate', parseFloat(e.target.value))}
-                                className={`w-20 px-2 py-1 rounded text-sm ${darkMode ? 'bg-gray-600 text-white' : 'bg-white'}`}
-                                placeholder="Rate"
-                                step="0.1"
-                            />
-                            <button onClick={onSaveEdit} className="p-1 rounded bg-green-500 hover:bg-green-600 text-white">
-                                <Check size={16} />
-                            </button>
-                            <button onClick={onCancelEdit} className="p-1 rounded bg-gray-500 hover:bg-gray-600 text-white">
-                                <X size={16} />
-                            </button>
-                        </div>
-                    );
-                }
-
-                const elapsed = isActive ? Date.now() - runningTimers[activity.id].startTime : 0;
-
-                return (
-                    <div className={`p-3 rounded-lg flex items-center justify-between transition-all ${
-                        isActive 
-                            ? darkMode ? 'bg-indigo-900 ring-2 ring-indigo-500' : 'bg-indigo-100 ring-2 ring-indigo-500'
-                            : darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'
-                    }`}>
-                        <div className="flex-1">
-                            <p className={`font-semibold text-sm md:text-base ${darkMode ? 'text-white' : 'text-gray-800'}`}>{activity.name}</p>
-                            {isActive && (
-                                <p className={`text-xs ${activity.type === 'credit' ? 'text-green-300' : 'text-red-300'}`}>
-                                    {formatTime(elapsed)}
-                                </p>
-                            )}
-                        </div>
-                        <div className="flex gap-2 items-center">
-                            <button
-                                onClick={onStartTimer}
-                                className={`p-1.5 rounded transition ${isActive ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} text-white`}
-                            >
-                                {isActive ? <Pause size={16} /> : <Play size={16} />}
-                            </button>
-                            {enableEditActivities && (
-                                <button
-                                    onClick={onEdit}
-                                    className="p-1.5 rounded bg-yellow-500 hover:bg-yellow-600 text-white transition"
-                                >
-                                    <Edit2 size={16} />
-                                </button>
-                            )}
-                            <button
-                                onClick={onDelete}
-                                className="p-1.5 rounded bg-red-500 hover:bg-red-600 text-white transition"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        </div>
-                    </div>
-                );
-            };
+            const creditActivities = sortActivities(activities.filter(a => a.type === 'credit'));
+            const debitActivities = sortActivities(activities.filter(a => a.type === 'debit'));
 
             return (
-                <div className={`min-h-screen transition-colors ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-                    {/* Header */}
-                    <div className={`sticky top-0 z-50 shadow-lg ${darkMode ? 'bg-gray-800 border-b border-gray-700' : 'bg-white border-b border-gray-200'}`}>
-                        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3 flex-1">
-                                <h1 className="text-2xl md:text-3xl font-bold">⏱ Memento Vivere</h1>
-                                <div className={`px-2 py-1 rounded text-xs font-semibold ${
-                                    syncStatus === 'connected' 
-                                        ? 'bg-green-500 text-white' 
-                                        : 'bg-yellow-500 text-white'
-                                }`}>
-                                    {syncStatus === 'connected' ? '✓ Synced' : '📱 Local'}
+                <div className={`min-h-screen transition-colors ${darkMode ? 'bg-gradient-to-br from-gray-900 to-gray-800' : 'bg-gradient-to-br from-blue-50 to-indigo-100'} p-3 md:p-6`}>
+                    <div className="max-w-4xl mx-auto">
+                        {/* Header */}
+                        <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-lg p-4 md:p-8 mb-8 transition-colors`}>
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-start mb-6 gap-4">
+                                <div>
+                                    <h1 className={`text-3xl md:text-4xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-1 md:mb-2`}>Memento Vivere</h1>
+                                    <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm md:text-base`}>{hideBalance ? "Time is the only currency you spend without ever knowing the balance." : "A man who dares to waste one hour of time has not discovered the value of life."}</p>
+                                </div>
+                                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                    <button
+                                        onClick={() => setHideBalance(!hideBalance)}
+                                        className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-semibold transition flex-1 md:flex-none justify-center ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
+                                        title={hideBalance ? "Show balance" : "Hide balance"}
+                                    >
+                                        {hideBalance ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        <span className="md:hidden text-xs">Balance</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setDarkMode(!darkMode)}
+                                        className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-semibold transition flex-1 md:flex-none justify-center ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-yellow-300' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
+                                    >
+                                        {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+                                        <span className="md:hidden text-xs">Theme</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setShowSettings(!showSettings)}
+                                        className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg font-semibold transition flex-1 md:flex-none justify-center ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-500 hover:bg-gray-600 text-white'}`}
+                                    >
+                                        ⚙️ <span className="md:hidden text-xs">Settings</span>
+                                    </button>
                                 </div>
                             </div>
-                            <div className="flex gap-2 items-center">
-                                <button
-                                    onClick={() => setDarkMode(!darkMode)}
-                                    className={`p-2 rounded-lg transition ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-                                >
-                                    {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-                                </button>
-                                {currentUser && (
-                                    <button
-                                        onClick={handleLogout}
-                                        className={`p-2 rounded-lg transition ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
-                                        title="Logout"
-                                    >
-                                        <LogOut size={20} />
-                                    </button>
-                                )}
+                            
+                            <div className={`${darkMode ? 'bg-gradient-to-r from-cyan-600 to-blue-700' : 'bg-gradient-to-r from-green-400 to-blue-500'} rounded-lg p-4 md:p-6 text-white transition-colors ${hideBalance ? 'opacity-30' : ''}`}>
+                                <p className="text-xs md:text-sm font-semibold opacity-90">Current Balance</p>
+                                <p className="text-4xl md:text-5xl font-bold">{hideBalance ? '•••' : balance}</p>
+                                <p className="text-xs opacity-75 mt-1">minutes available</p>
                             </div>
                         </div>
-                    </div>
 
-                    {/* Main Content */}
-                    <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
-                        {/* Stats */}
-                        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-lg p-6 transition-colors`}>
-                                <p className={`text-sm md:text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-2`}>Total Time</p>
-                                <p className="text-4xl md:text-5xl font-bold text-cyan-500">{formatTime(totalTime)}</p>
+                        {/* Settings Modal */}
+                        {showSettings && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-2xl p-8 max-w-2xl w-full max-h-96 overflow-y-auto transition-colors`}>
+                                    <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-6`}>Settings</h2>
+                                    
+                                    {/* Tabs */}
+                                    <div className={`flex gap-2 mb-6 border-b ${darkMode ? 'border-gray-700' : ''}`}>
+                                        <button
+                                            onClick={() => setSettingsTab('balance')}
+                                            className={`px-4 py-2 font-semibold transition ${settingsTab === 'balance' ? 'text-indigo-600 border-b-2 border-indigo-600' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                                        >
+                                            Balance Adjustment
+                                        </button>
+                                        <button
+                                            onClick={() => setSettingsTab('logs')}
+                                            className={`px-4 py-2 font-semibold transition ${settingsTab === 'logs' ? 'text-indigo-600 border-b-2 border-indigo-600' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                                        >
+                                            Activity Log ({logs.length})
+                                        </button>
+                                        <button
+                                            onClick={() => setSettingsTab('cache')}
+                                            className={`px-4 py-2 font-semibold transition ${settingsTab === 'cache' ? 'text-indigo-600 border-b-2 border-indigo-600' : darkMode ? 'text-gray-400' : 'text-gray-600'}`}
+                                        >
+                                            Cache & Data
+                                        </button>
+                                    </div>
+
+                                    {settingsTab === 'balance' ? (
+                                        <>
+                                            {/* Balance Adjustment Tab */}
+                                            <div className="mb-6">
+                                                <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'} mb-2`}>Adjust Balance</label>
+                                                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm mb-4`}>Add or remove points (for errors or manual corrections)</p>
+                                                <div className="space-y-3">
+                                                    <input
+                                                        type="number"
+                                                        placeholder="Points to add/remove"
+                                                        value={balanceAdjustment.amount}
+                                                        onChange={(e) => setBalanceAdjustment({...balanceAdjustment, amount: e.target.value})}
+                                                        className={`border-2 rounded-lg px-4 py-2 w-full focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Reason (optional)"
+                                                        value={balanceAdjustment.reason}
+                                                        onChange={(e) => setBalanceAdjustment({...balanceAdjustment, reason: e.target.value})}
+                                                        className={`border-2 rounded-lg px-4 py-2 w-full focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                                    />
+                                                    <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                        Current: {balance} pts | After: {Math.max(0, balance + parseInt(balanceAdjustment.amount || 0))} pts
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={handleBalanceAdjustment}
+                                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-bold transition"
+                                                >
+                                                    Apply ✓
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setShowSettings(false);
+                                                        setBalanceAdjustment({ amount: 0, reason: '' });
+                                                    }}
+                                                    className="flex-1 bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-bold transition"
+                                                >
+                                                    Close ✗
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : settingsTab === 'logs' ? (
+                                        <>
+                                            {/* Activity Log Tab */}
+                                            <div className="space-y-2 max-h-64 overflow-y-auto mb-6">
+                                                {logs.length === 0 ? (
+                                                    <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`}>No activity logs yet</p>
+                                                ) : (
+                                                    [...logs].reverse().map((log, idx) => (
+                                                        <div key={idx} className={`text-sm p-3 rounded border-l-2 border-indigo-500 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                                                            <div className="flex justify-between">
+                                                                <span className={`font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>{log.action}</span>
+                                                                <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{log.timestamp}</span>
+                                                            </div>
+                                                            {log.details && <div className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mt-1`}>{log.details}</div>}
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={() => setLogs([])}
+                                                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-semibold transition text-sm"
+                                                >
+                                                    Clear Logs
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowSettings(false)}
+                                                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold transition text-sm"
+                                                >
+                                                    Close
+                                                </button>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {/* Cache & Data Management Tab */}
+                                            <div className="space-y-4 mb-6">
+                                                <div>
+                                                    <label className={`flex items-center gap-3 mb-4 cursor-pointer`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={enableEditActivities}
+                                                            onChange={(e) => setEnableEditActivities(e.target.checked)}
+                                                            className="w-4 h-4"
+                                                        />
+                                                        <span className={`text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                                                            Enable Activity Editing (shows delete buttons)
+                                                        </span>
+                                                    </label>
+                                                </div>
+
+                                                <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
+                                                    <h4 className={`font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Clear Old Cache</h4>
+                                                    <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                        Remove cached code and temporary files while keeping your balance and activities intact.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setShowCacheConfirm('soft')}
+                                                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-semibold transition text-sm"
+                                                    >
+                                                        🧹 Clear Cache
+                                                    </button>
+                                                </div>
+
+                                                <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-700 bg-gray-700' : 'border-gray-300 bg-gray-50'}`}>
+                                                    <h4 className={`font-semibold mb-2 ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>Wipe All Data</h4>
+                                                    <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                        Start completely fresh. This will permanently delete all activities, balance, and logs.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setShowCacheConfirm('hard')}
+                                                        className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold transition text-sm"
+                                                    >
+                                                        🗑️ Wipe All Data & Start Fresh
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                onClick={() => setShowSettings(false)}
+                                                className="w-full bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold transition text-sm"
+                                            >
+                                                Close
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                            <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-lg p-6 transition-colors`}>
-                                <p className={`text-sm md:text-base ${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-2`}>Activities</p>
-                                <p className="text-4xl md:text-5xl font-bold text-purple-500">{activities.length}</p>
+                        )}
+
+                        {/* Cache Operation Confirmation Modal */}
+                        {showCacheConfirm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-2xl p-4 md:p-8 max-w-md w-full transition-colors`}>
+                                    {showCacheConfirm === 'soft' ? (
+                                        <>
+                                            <h2 className={`text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Clear Cache?</h2>
+                                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4 text-sm md:text-base`}>
+                                                This will clear temporary data while keeping:
+                                            </p>
+                                            <ul className={`list-disc list-inside ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6 text-sm md:text-base`}>
+                                                <li>Your activity balance</li>
+                                                <li>All your activities</li>
+                                            </ul>
+                                            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-6 text-xs md:text-sm`}>
+                                                Cleared: Activity logs and running timers
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h2 className={`text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Wipe All Data?</h2>
+                                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2 text-sm md:text-base`}>
+                                                This will permanently delete:
+                                            </p>
+                                            <ul className={`list-disc list-inside ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6 text-sm md:text-base`}>
+                                                <li>All activities</li>
+                                                <li>Current balance</li>
+                                                <li>All activity logs</li>
+                                                <li>Any running timers</li>
+                                            </ul>
+                                            <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-6 text-xs md:text-sm font-semibold`}>
+                                                This action cannot be undone.
+                                            </p>
+                                        </>
+                                    )}
+                                    <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                                        <button
+                                            onClick={() => {
+                                                if (showCacheConfirm === 'soft') {
+                                                    handleSoftClearCache();
+                                                } else {
+                                                    handleWipeData();
+                                                }
+                                            }}
+                                            className={`flex-1 px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold transition text-sm md:text-base text-white ${
+                                                showCacheConfirm === 'soft'
+                                                    ? 'bg-yellow-500 hover:bg-yellow-600'
+                                                    : 'bg-red-600 hover:bg-red-700'
+                                            }`}
+                                        >
+                                            {showCacheConfirm === 'soft' ? 'Yes, Clear Cache' : 'Yes, Wipe Everything'}
+                                        </button>
+                                        <button
+                                            onClick={() => setShowCacheConfirm(null)}
+                                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold transition text-sm md:text-base"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        )}
+
+                        {/* Wipe Data Confirmation Modal (deprecated - keeping for reference) */}
+                        {showWipeConfirm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-2xl p-4 md:p-8 max-w-md w-full transition-colors`}>
+                                    <h2 className={`text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Wipe All Data?</h2>
+                                    <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-2 text-sm md:text-base`}>
+                                        This will permanently delete:
+                                    </p>
+                                    <ul className={`list-disc list-inside ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6 text-sm md:text-base`}>
+                                        <li>All activities</li>
+                                        <li>Current balance</li>
+                                        <li>All activity logs</li>
+                                        <li>Any running timers</li>
+                                    </ul>
+                                    <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} mb-6 text-xs md:text-sm font-semibold`}>
+                                        This action cannot be undone.
+                                    </p>
+                                    <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                                        <button
+                                            onClick={handleWipeData}
+                                            className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold transition text-sm md:text-base"
+                                        >
+                                            Yes, Wipe Everything
+                                        </button>
+                                        <button
+                                            onClick={() => setShowWipeConfirm(false)}
+                                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold transition text-sm md:text-base"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Completion Prompt Modal */}
+                        {completionPrompt && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-2xl p-4 md:p-8 max-w-md w-full transition-colors`}>
+                                    <h2 className={`text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-2`}>Confirm Time</h2>
+                                    <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-6 text-sm md:text-base`}>
+                                        You spent <span className={`font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>{formatTime(completionPrompt.timeSpent)}</span> on <span className="font-bold">{completionPrompt.name}</span>
+                                    </p>
+                                    <div className={`rounded-lg p-3 md:p-4 mb-6 ${
+                                        completionPrompt.type === 'credit' 
+                                            ? darkMode ? 'bg-gradient-to-r from-green-900 to-blue-900' : 'bg-gradient-to-r from-green-100 to-blue-100'
+                                            : darkMode ? 'bg-gradient-to-r from-red-900 to-orange-900' : 'bg-gradient-to-r from-red-100 to-orange-100'
+                                    }`}>
+                                        <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-1`}>
+                                            {completionPrompt.type === 'credit' ? 'You earned:' : 'You spent:'}
+                                        </p>
+                                        <p className={`text-2xl md:text-3xl font-bold ${
+                                            completionPrompt.type === 'credit' ? darkMode ? 'text-green-400' : 'text-green-600' : darkMode ? 'text-red-400' : 'text-red-600'
+                                        }`}>
+                                            {completionPrompt.type === 'credit' ? '+' : '-'}{Math.round((completionPrompt.timeSpent / 60) * completionPrompt.rate)} pts
+                                        </p>
+                                        <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'} mt-1`}>
+                                            {completionPrompt.rate} pts/min × {formatTime(completionPrompt.timeSpent)}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                                        <button
+                                            onClick={handleCompletionYes}
+                                            className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold transition text-sm md:text-base"
+                                        >
+                                            Confirm ✓
+                                        </button>
+                                        <button
+                                            onClick={handleCompletionNo}
+                                            className="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg font-bold transition text-sm md:text-base"
+                                        >
+                                            Undo ✗
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Completion Alert Modal */}
+                        {completionAlert && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-2xl p-6 max-w-sm w-full animate-bounce-once`}>
+                                    <div className="text-center">
+                                        <div className="text-6xl mb-4">⏱</div>
+                                        <h3 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-2`}>Time's Up!</h3>
+                                        <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-4`}>
+                                            {completionAlert.activityName}
+                                        </p>
+                                        <div className={`rounded-lg p-4 mb-6 ${
+                                            completionAlert.type === 'credit' 
+                                                ? darkMode ? 'bg-green-900' : 'bg-green-100'
+                                                : darkMode ? 'bg-red-900' : 'bg-red-100'
+                                        }`}>
+                                            <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-1`}>
+                                                {completionAlert.type === 'credit' ? 'You earned:' : 'You spent:'}
+                                            </p>
+                                            <p className={`text-3xl font-bold ${
+                                                completionAlert.type === 'credit' 
+                                                    ? darkMode ? 'text-green-400' : 'text-green-600'
+                                                    : darkMode ? 'text-red-400' : 'text-red-600'
+                                            }`}>
+                                                {completionAlert.type === 'credit' ? '+' : '-'}{completionAlert.points} pts
+                                            </p>
+                                            <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                {completionAlert.timeSpent > 0 ? formatTime(completionAlert.timeSpent) : 'Single Item'}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setCompletionAlert(null);
+                                            }}
+                                            className="w-full bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-3 rounded-lg font-semibold transition"
+                                        >
+                                            Got It!
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Countdown Duration Prompt */}
+                        {countdownPrompt && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-2xl p-6 max-w-sm w-full`}>
+                                    <h3 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Set Countdown Duration</h3>
+                                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-6`}>
+                                        {activities.find(a => a.id === countdownPrompt.activityId)?.name}
+                                    </p>
+                                    <div className="grid grid-cols-3 gap-4 mb-6">
+                                        <div>
+                                            <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>Hours</label>
+                                            <input
+                                                type="number"
+                                                value={countdownPrompt.hours}
+                                                onChange={(e) => setCountdownPrompt({...countdownPrompt, hours: Math.max(0, parseInt(e.target.value) || 0)})}
+                                                min="0"
+                                                max="23"
+                                                className={`w-full border-2 rounded px-3 py-2 text-center text-lg focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>Minutes</label>
+                                            <input
+                                                type="number"
+                                                value={countdownPrompt.minutes}
+                                                onChange={(e) => setCountdownPrompt({...countdownPrompt, minutes: Math.max(0, Math.min(59, parseInt(e.target.value) || 0))})}
+                                                min="0"
+                                                max="59"
+                                                className={`w-full border-2 rounded px-3 py-2 text-center text-lg focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className={`block text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-2`}>Seconds</label>
+                                            <input
+                                                type="number"
+                                                value={countdownPrompt.seconds}
+                                                onChange={(e) => setCountdownPrompt({...countdownPrompt, seconds: Math.max(0, Math.min(59, parseInt(e.target.value) || 0))})}
+                                                min="0"
+                                                max="59"
+                                                className={`w-full border-2 rounded px-3 py-2 text-center text-lg focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                const totalSeconds = (countdownPrompt.hours * 3600) + (countdownPrompt.minutes * 60) + countdownPrompt.seconds;
+                                                if (totalSeconds > 0) {
+                                                    startCountdownTimer(countdownPrompt.activityId, totalSeconds);
+                                                }
+                                            }}
+                                            className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-lg font-semibold transition"
+                                        >
+                                            Start Countdown
+                                        </button>
+                                        <button
+                                            onClick={() => setCountdownPrompt(null)}
+                                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg font-semibold transition"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Active Timers */}
+                        {Object.keys(runningTimers).length > 0 && (
+                            <div className={`${darkMode ? 'bg-gray-800 border-2 border-indigo-600' : 'bg-white border-2 border-indigo-500'} rounded-lg shadow-lg p-4 md:p-8 mb-8 transition-colors w-full`}>
+                                <h2 className={`text-xl md:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Active Timers</h2>
+                                <div className="space-y-4 w-full">
+                                    {Object.entries(runningTimers).map(([activityId, timer]) => {
+                                        const activity = activities.find(a => a.id === Number(activityId));
+                                        if (!activity) return null;
+                                        
+                                        const isCountdown = timer.isCountdown;
+                                        let displayTime = timerDisplays[activityId] || 0;
+                                        let elapsedTime = displayTime;
+                                        let pointsDisplay = 0;
+                                        
+                                        if (isCountdown) {
+                                            // For countdown, calculate actual elapsed time
+                                            if (timer.isPaused) {
+                                                elapsedTime = timer.pausedElapsed;
+                                            } else {
+                                                elapsedTime = Math.floor((Date.now() - timer.startTime) / 1000);
+                                                elapsedTime = Math.min(elapsedTime, timer.totalSeconds);
+                                            }
+                                            displayTime = timer.totalSeconds - elapsedTime; // Show remaining
+                                            pointsDisplay = Math.round((elapsedTime / 60) * activity.rate);
+                                        } else {
+                                            elapsedTime = displayTime;
+                                            pointsDisplay = Math.round((elapsedTime / 60) * activity.rate);
+                                        }
+                                        
+                                        return (
+                                            <div key={activityId} className={`rounded-lg p-4 border-l-4 w-full ${
+                                                isCountdown 
+                                                    ? darkMode ? 'bg-gradient-to-r from-orange-900 to-yellow-900 border-orange-500' : 'bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-400'
+                                                    : darkMode ? 'bg-gradient-to-r from-indigo-900 to-blue-900 border-indigo-500' : 'bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-500'
+                                            }`}>
+                                                <div className="mb-3 flex items-start justify-between">
+                                                    <div>
+                                                        <h3 className={`font-bold text-base truncate ${darkMode ? 'text-white' : 'text-gray-800'}`}>{activity.name}</h3>
+                                                        <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{activity.rate} pts/min</p>
+                                                    </div>
+                                                    {isCountdown && (
+                                                        <span className={`px-2 py-1 text-xs font-bold rounded ${darkMode ? 'bg-orange-800 text-orange-200' : 'bg-orange-200 text-orange-800'}`}>
+                                                            ⏱ COUNTDOWN
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-center mb-4">
+                                                    <div className={`text-5xl font-bold font-mono ${isCountdown ? (darkMode ? 'text-orange-400' : 'text-orange-600') : (darkMode ? 'text-indigo-400' : 'text-indigo-600')}`}>
+                                                        {formatTime(displayTime)}
+                                                    </div>
+                                                    <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {isCountdown ? (
+                                                            <>{formatTime(elapsedTime)} elapsed • {activity.type === 'credit' ? '+' : '-'}{pointsDisplay} pts</>
+                                                        ) : (
+                                                            <>≈ {activity.type === 'credit' ? '+' : '-'}{pointsDisplay} pts</>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-col gap-2 w-full">
+                                                    <button
+                                                        onClick={() => startTimer(Number(activityId))}
+                                                        className="w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded text-sm font-semibold transition"
+                                                    >
+                                                        {timer.isPaused ? <Play size={18} /> : <Pause size={18} />}
+                                                        {timer.isPaused ? 'Resume' : 'Pause'}
+                                                    </button>
+                                                    <div className="flex gap-2 w-full">
+                                                        <button
+                                                            onClick={() => resetTimer(Number(activityId))}
+                                                            className="flex-1 flex items-center justify-center gap-1 bg-gray-500 hover:bg-gray-600 text-white px-3 py-3 rounded text-sm font-semibold transition"
+                                                        >
+                                                            <RotateCcw size={16} />
+                                                            Reset
+                                                        </button>
+                                                        <button
+                                                            onClick={() => stopTimer(Number(activityId))}
+                                                            className="flex-1 flex items-center justify-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-3 rounded text-sm font-semibold transition"
+                                                        >
+                                                            Stop & Save
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Add Activity Form */}
                         {showAddForm && (
-                            <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-lg p-4 md:p-6 mb-8 transition-colors`}>
-                                <h2 className="text-lg md:text-xl font-bold mb-4">Add New Activity</h2>
-                                <div className="space-y-4 mb-6">
+                            <div className={`${darkMode ? 'bg-gray-800 border-2 border-green-600' : 'bg-white border-2 border-green-500'} rounded-lg shadow-lg p-4 md:p-6 mb-8 transition-colors`}>
+                                <h3 className={`text-lg md:text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Add New Activity</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-4">
                                     <input
                                         type="text"
                                         placeholder="Activity name"
                                         value={newActivity.name}
                                         onChange={(e) => setNewActivity({...newActivity, name: e.target.value})}
-                                        className={`w-full px-4 py-2 rounded-lg border-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
+                                        className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
                                     />
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <select
-                                            value={newActivity.type}
-                                            onChange={(e) => setNewActivity({...newActivity, type: e.target.value})}
-                                            className={`px-4 py-2 rounded-lg border-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                                        >
-                                            <option value="credit">Earning ✓</option>
-                                            <option value="debit">Spending ✗</option>
-                                        </select>
-                                        <select
-                                            value={newActivity.mode}
-                                            onChange={(e) => setNewActivity({...newActivity, mode: e.target.value})}
-                                            className={`px-4 py-2 rounded-lg border-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                                        >
-                                            <option value="stopwatch">Stopwatch ⏱</option>
-                                            <option value="countdown">Countdown ⏳</option>
-                                            <option value="single">Single ✓</option>
-                                        </select>
-                                    </div>
-                                    {newActivity.mode !== 'single' && (
-                                        <input
-                                            type="number"
-                                            placeholder={newActivity.mode === 'single' ? "Points" : "Rate (per minute)"}
-                                            value={newActivity.mode === 'single' ? newActivity.points : newActivity.rate}
-                                            onChange={(e) => setNewActivity({
-                                                ...newActivity,
-                                                [newActivity.mode === 'single' ? 'points' : 'rate']: e.target.value
-                                            })}
-                                            className={`w-full px-4 py-2 rounded-lg border-2 focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`}
-                                            step={newActivity.mode === 'single' ? '1' : '0.1'}
-                                        />
-                                    )}
+                                    <select
+                                        value={newActivity.type}
+                                        onChange={(e) => setNewActivity({...newActivity, type: e.target.value})}
+                                        className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                    >
+                                        <option value="credit">Credit (Earn)</option>
+                                        <option value="debit">Debit (Spend)</option>
+                                    </select>
+                                    <select
+                                        value={newActivity.mode || 'stopwatch'}
+                                        onChange={(e) => setNewActivity({...newActivity, mode: e.target.value})}
+                                        className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                    >
+                                        <option value="stopwatch">Stopwatch</option>
+                                        <option value="countdown">Countdown</option>
+                                        <option value="single">Single Item</option>
+                                    </select>
                                 </div>
-                                <div className="flex gap-3">
+                                
+                                {(newActivity.mode === 'stopwatch' || newActivity.mode === 'countdown') && (
+                                    <div className="mb-4">
+                                        <div>
+                                            <input
+                                                type="number"
+                                                placeholder="Points per minute"
+                                                value={newActivity.rate}
+                                                onChange={(e) => setNewActivity({...newActivity, rate: e.target.value})}
+                                                min="0.1"
+                                                step="0.1"
+                                                className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                            />
+                                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>pts/min</p>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {newActivity.mode === 'single' && (
+                                    <div className="mb-4">
+                                        <div>
+                                            <input
+                                                type="number"
+                                                placeholder="Points for this task"
+                                                value={newActivity.points}
+                                                onChange={(e) => setNewActivity({...newActivity, points: e.target.value})}
+                                                min="1"
+                                                step="1"
+                                                className={`border-2 rounded-lg px-3 md:px-4 py-2 text-sm focus:outline-none focus:border-indigo-500 w-full ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300'}`}
+                                            />
+                                            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>total points</p>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {newActivity.mode === 'countdown' && (
+                                    <div className="mb-4 flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={newActivity.isCountdown || false}
+                                            onChange={(e) => setNewActivity({...newActivity, isCountdown: e.target.checked})}
+                                            id="countdown-new"
+                                            className="w-4 h-4"
+                                        />
+                                        <label htmlFor="countdown-new" className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            Use countdown timer (will ask for duration)
+                                        </label>
+                                    </div>
+                                )}
+                                
+                                <div className="flex flex-col md:flex-row gap-2">
                                     <button
                                         onClick={addActivity}
-                                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition"
+                                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 md:px-6 py-2 rounded-lg font-semibold transition text-sm md:text-base"
                                     >
                                         Add Activity
                                     </button>
                                     <button
                                         onClick={() => setShowAddForm(false)}
-                                        className={`flex-1 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-300 hover:bg-gray-400'} text-white px-4 py-2 rounded-lg font-semibold transition`}
+                                        className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 md:px-6 py-2 rounded-lg font-semibold transition text-sm md:text-base"
                                     >
                                         Cancel
                                     </button>
                                 </div>
+                            </div>
+                        )}
 
-                                {/* Suggested Activities */}
-                                <div className="mt-8">
-                                    <h3 className="font-semibold mb-4 text-sm md:text-base">Quick Add (Suggested):</h3>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                        {SUGGESTED_ACTIVITIES.map((activity, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => {
-                                                    setNewActivity(activity);
-                                                }}
-                                                className={`text-left text-xs p-2 rounded transition hover:ring-2 hover:ring-indigo-500 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
-                                            >
-                                                <div className="font-semibold text-sm truncate">{activity.name}</div>
-                                                <div className={`text-xs ${
-                                                    activity.type === 'credit'
-                                                        ? darkMode ? 'text-green-300' : 'text-green-700'
-                                                        : darkMode ? 'text-red-300' : 'text-red-700'
-                                                }`}>
-                                                    {activity.type === 'credit' ? '+' : '-'}{activity.mode === 'single' ? activity.points : activity.rate + '/min'}
+                        {showAddForm && (
+                            <div className={`${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'} rounded-lg shadow-lg p-4 md:p-6 mb-8 transition-colors`}>
+                                <h4 className={`text-base md:text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-4`}>Suggested Activities</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {SUGGESTED_ACTIVITIES.map((activity, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => {
+                                                setActivities([...activities, { ...activity, id: Date.now() + Math.random() }]);
+                                                const desc = activity.mode === 'single' ? `${activity.points} pts (Single Item)` : `${activity.rate} pts/min (${activity.type})`;
+                                                addLog('Activity Added', `${activity.name} - ${desc}`);
+                                                setShowAddForm(false);
+                                                setNewActivity({ name: '', rate: 1, type: 'credit', isCountdown: false, mode: 'stopwatch', points: 5 });
+                                            }}
+                                            className={`p-2 md:p-3 rounded-lg border-2 text-left transition text-xs md:text-sm ${
+                                                activity.type === 'credit'
+                                                    ? darkMode ? 'bg-green-900 border-green-700 hover:bg-green-800' : 'bg-green-50 border-green-300 hover:bg-green-100'
+                                                    : darkMode ? 'bg-red-900 border-red-700 hover:bg-red-800' : 'bg-red-50 border-red-300 hover:bg-red-100'
+                                            }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-1 mb-1">
+                                                <div className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                                    {activity.name}
                                                 </div>
-                                            </button>
-                                        ))}
-                                    </div>
+                                                <div className="flex gap-1">
+                                                    {activity.mode === 'countdown' && (
+                                                        <span className="text-xs px-1 py-0.5 rounded bg-opacity-50 bg-gray-700 text-gray-200 whitespace-nowrap">
+                                                            ⏱
+                                                        </span>
+                                                    )}
+                                                    {activity.mode === 'single' && (
+                                                        <span className="text-xs px-1 py-0.5 rounded bg-opacity-50 bg-purple-700 text-purple-200 whitespace-nowrap">
+                                                            ✓
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className={`text-xs ${
+                                                activity.type === 'credit'
+                                                    ? darkMode ? 'text-green-300' : 'text-green-700'
+                                                    : darkMode ? 'text-red-300' : 'text-red-700'
+                                            }`}>
+                                                {activity.type === 'credit' ? '+' : '-'}{activity.mode === 'single' ? activity.points : activity.rate + '/min'}
+                                            </div>
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         )}
@@ -655,12 +1400,6 @@
                                     <option value="rate-asc">Time Cost (Low to High)</option>
                                     <option value="rate-desc">Time Cost (High to Low)</option>
                                 </select>
-                                <button
-                                    onClick={() => setEnableEditActivities(!enableEditActivities)}
-                                    className={`ml-auto px-4 py-2 rounded-lg font-semibold transition ${enableEditActivities ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-gray-500 hover:bg-gray-600'} text-white text-sm`}
-                                >
-                                    {enableEditActivities ? 'Done Editing' : 'Edit Activities'}
-                                </button>
                             </div>
                         )}
 
