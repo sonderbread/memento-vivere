@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Memento Vivere</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica',
+                'Arial', sans-serif;
+        }
+        
+        .transition-theme {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const Moon = ({ size = 24 }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+    );
+
+    const Sun = ({ size = 24 }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" strokeWidth="2"></line>
+            <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" strokeWidth="2"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" strokeWidth="2"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" strokeWidth="2"></line>
+            <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2"></line>
+            <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" strokeWidth="2"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" strokeWidth="2"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" strokeWidth="2"></line>
+        </svg>
+    );
+
+    function PrivacyPolicy() {
+        const [darkMode, setDarkMode] = useState(() => {
+            if (typeof window !== 'undefined') {
+                const stored = localStorage.getItem('memento-dark-mode');
+                return stored !== null ? JSON.parse(stored) : true;
+            }
+            return true;
+        });
+
+        useEffect(() => {
+            localStorage.setItem('memento-dark-mode', JSON.stringify(darkMode));
+        }, [darkMode]);
+
+        return (
+            <div className={`${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} transition-theme min-h-screen`}>
+                {/* Header */}
+                <header className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b transition-theme shadow-md`}>
+                    <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="text-3xl">⏱</div>
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-bold">Memento Vivere</h1>
+                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Privacy Policy</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setDarkMode(!darkMode)}
+                            className={`p-2 rounded-lg transition-colors ${
+                                darkMode 
+                                    ? 'bg-gray-700 hover:bg-gray-600 text-yellow-400' 
+                                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                            }`}
+                        >
+                            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                        </button>
+                    </div>
+                </header>
+
+                {/* Main Content */}
+                <main className="max-w-4xl mx-auto px-4 md:px-6 py-8 md:py-12">
+                    <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border rounded-lg shadow-lg p-6 md:p-8 transition-colors`}>
+                        
+                        <div className="mb-2 text-sm text-cyan-500 font-semibold">Last Updated: October 29, 2025</div>
+
+                        {/* Overview Section */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                <span>📋</span> Overview
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                                <span className="font-semibold">Memento Vivere</span> ("we," "us," "our," or "the App") respects your privacy. This Privacy Policy explains our approach to data collection and your use of the App.
+                            </p>
+                        </section>
+
+                        {/* No Data Collection */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                                <span>✓</span> No Data Collection
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                                We do not collect, store, or transmit any personal information or user data. Your privacy is important to us, which is why we've designed the App to function entirely without collecting data about you or your activity.
+                            </p>
+                        </section>
+
+                        {/* How the App Works */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                <span>⚙️</span> How the App Works
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                                The App operates locally on your device. Any information you input or any activity you perform within the App remains on your device and is never sent to our servers or third parties.
+                            </p>
+                        </section>
+
+                        {/* No Third-Party Tracking */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                                <span>🔒</span> No Third-Party Tracking
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                                We do not use analytics tools, tracking pixels, or any other technology that monitors your use of the App. We do not share any information with third parties because we don't collect any information to share.
+                            </p>
+                        </section>
+
+                        {/* No Cookies */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                                <span>🍪</span> No Cookies or Similar Technologies
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                                The App does not use cookies, local storage, or similar tracking technologies to identify or track you.
+                            </p>
+                        </section>
+
+                        {/* Children's Privacy */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-pink-400' : 'text-pink-600'}`}>
+                                <span>👨‍👩‍👧‍👦</span> Children's Privacy
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                                The App does not knowingly collect personal information from children. Since we do not collect any data from anyone, we provide the same level of privacy protection to all users, including children under 13.
+                            </p>
+                        </section>
+
+                        {/* Your Rights */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                                <span>⚖️</span> Your Rights
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                                Since we do not collect any data, there is no personal information for you to access, modify, or delete. You maintain complete control over any information stored on your device.
+                            </p>
+                        </section>
+
+                        {/* Changes to Policy */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                <span>📝</span> Changes to This Privacy Policy
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed`}>
+                                We may update this Privacy Policy from time to time. If we make material changes, we will notify you by updating the "Last Updated" date at the top of this policy. Your continued use of the App after any changes constitutes your acceptance of the updated Privacy Policy.
+                            </p>
+                        </section>
+
+                        {/* Contact Us */}
+                        <section className="mb-8">
+                            <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${darkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                <span>💬</span> Contact Us
+                            </h2>
+                            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-700'} leading-relaxed mb-4`}>
+                                If you have any questions about this Privacy Policy or our privacy practices, please contact us at:
+                            </p>
+                            <div className={`${darkMode ? 'bg-gray-700' : 'bg-gray-100'} p-4 rounded-lg font-mono text-sm`}>
+                                <p><strong>Email:</strong> your-email@example.com</p>
+                                <p><strong>Company:</strong> Your Company Name</p>
+                                <p><strong>Website:</strong> www.yourwebsite.com</p>
+                            </div>
+                        </section>
+
+                        {/* Acknowledgement */}
+                        <section className={`pt-8 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                            <p className={`text-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                By using Memento Vivere, you acknowledge that you have read and understood this Privacy Policy.
+                            </p>
+                        </section>
+                    </div>
+
+                    {/* Note for developers */}
+                    <div className={`mt-8 p-4 rounded-lg ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-blue-50 border border-blue-200'}`}>
+                        <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-blue-900'}`}>
+                            <strong>📌 Before deploying:</strong> Replace the placeholder contact information in the "Contact Us" section with your actual email, company name, and website URL.
+                        </p>
+                    </div>
+                </main>
+
+                {/* Footer */}
+                <footer className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'} border-t transition-theme mt-12`}>
+                    <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 text-center text-sm">
+                        <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            © 2025 Memento Vivere. All rights reserved.
+                        </p>
+                    </div>
+                </footer>
+            </div>
+        );
+    }
+
+    ReactDOM.render(<PrivacyPolicy />, document.getElementById('root'));
+</script>
+
+</body>
+</html>
