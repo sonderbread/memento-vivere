@@ -1,1 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Memento Vivere</title>
 
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/memento-vivere/manifest.json">
+    <meta name="theme-color" content="#1f2937">
+    <meta name="description" content="Track your time, invest in your life. Remember to live.">
+
+    <!-- Apple PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Memento">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" href="/favicon.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            animation: {
+              'bounce-once': 'bounce-once 0.6s ease-in-out 1',
+            },
+            keyframes: {
+              'bounce-once': {
+                '0%, 100%': {
+                  transform: 'translateY(0)',
+                },
+                '50%': {
+                  transform: 'translateY(-10px)',
+                },
+              },
+            },
+          },
+        },
+      }
+    </script>
+
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Prevent FOUC (Flash of Unstyled Content) -->
+    <style>
+      #root {
+        min-height: 100vh;
+        background: linear-gradient(to bottom right, #dbeafe, #c7d2fe);
+      }
+
+      .dark #root {
+        background: linear-gradient(to bottom right, #111827, #1f2937);
+      }
+
+      /* Loading spinner */
+      .loading-spinner {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #6366f1;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .loading-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        color: #374151;
+      }
+
+      .dark .loading-container {
+        color: #d1d5db;
+      }
+    </style>
+    <script type="module" crossorigin src="/memento-vivere/assets/index-BEguYdMb.js"></script>
+    <link rel="modulepreload" crossorigin href="/memento-vivere/assets/vendor-BXk_ma1u.js">
+    <link rel="modulepreload" crossorigin href="/memento-vivere/assets/utils-BSvDuDMs.js">
+    <link rel="stylesheet" crossorigin href="/memento-vivere/assets/index-CCfl6AnH.css">
+  </head>
+  <body>
+    <div id="root">
+      <div class="loading-container">
+        <div class="loading-spinner"></div>
+        <p style="margin-top: 1rem;">Loading Memento Vivere...</p>
+      </div>
+    </div>
+
+    <!-- Script to detect dark mode preference -->
+    <script>
+      // Apply dark mode immediately to prevent flash
+      if (localStorage.getItem('memento-darkMode') === 'true' ||
+          (!localStorage.getItem('memento-darkMode') &&
+           window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    </script>
+
+  </body>
+</html>
